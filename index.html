@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Werkuren</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#111111">
+<meta name="application-name" content="Werkuren">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Werkuren">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root{--bg:#f3f1ec;--card:#fff;--ink:#111;--mute:#6b6b66;--line:#dcd9d0;--go:#1f9d63;--stop:#e5532d;--accent:#4f5dff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#111;--card:#1a1a1a;--ink:#f5f5f2;--mute:#9a9a94;--line:#2e2e2e;--go:#23b574;--stop:#ff6a40;--accent:#7b86ff}}
+:root[data-theme="dark"]{--bg:#111;--card:#1a1a1a;--ink:#f5f5f2;--mute:#9a9a94;--line:#2e2e2e;--go:#23b574;--stop:#ff6a40;--accent:#7b86ff}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Helvetica Neue",Inter,system-ui,-apple-system,Roboto,Arial,sans-serif;min-height:100vh}
+button{font-family:inherit;color:inherit}
+.app{max-width:560px;margin:0 auto;padding:14px 16px 130px;position:relative}
+header{display:flex;justify-content:space-between;align-items:center}
+h1{margin:4px 0;font-size:34px;letter-spacing:-.04em;font-weight:800;line-height:1}
+h1 span{color:transparent;-webkit-text-stroke:1.5px var(--ink)}
+.burger{width:48px;height:48px;border:1.5px solid var(--line);border-radius:14px;background:var(--card);display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:6px;padding:0 13px}
+.burger i{display:block;height:2px;border-radius:2px;background:var(--ink);width:20px}.burger i+i{width:12px}
+.today{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:calc(100vh - 250px);text-align:center}
+.date{font-size:15px;color:var(--mute);text-transform:capitalize}
+.ask{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--mute);margin-top:6px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.lc{border:1.5px solid var(--ink);background:transparent;border-radius:999px;padding:0 16px;min-height:44px;font-weight:600;font-size:15px}
+.lc.on{background:var(--ink);color:var(--bg)}.lc.add{border-color:var(--line);color:var(--mute);padding:0 18px}
+.big{width:min(68vw,270px);aspect-ratio:1;border-radius:50%;border:0;color:#fff;font-size:32px;font-weight:800;letter-spacing:.05em;margin:8px 0;box-shadow:0 14px 40px rgba(0,0,0,.25)}
+.big.go{background:var(--go)}.big.stop{background:var(--stop);animation:pulse 2.2s infinite}
+.big:active{transform:scale(.97)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(229,83,45,.45)}70%{box-shadow:0 0 0 26px rgba(229,83,45,0)}100%{box-shadow:0 0 0 0 rgba(229,83,45,0)}}
+.timer{font-size:54px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.sub{background:none;border:0;color:var(--mute);font-size:14px;padding:10px;min-height:44px;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:4px}
+.tot{font-size:14px;color:var(--mute)}
+.list{text-align:left;padding-top:10px}
+.addday{width:100%;border:1.5px dashed var(--line);background:transparent;border-radius:16px;min-height:48px;font-weight:600;color:var(--mute);margin-bottom:6px}
+.mh{display:flex;justify-content:space-between;align-items:baseline;margin:22px 2px 6px}
+.mh b{font-size:20px;letter-spacing:-.02em;text-transform:capitalize}.mh span{color:var(--mute);font-size:13px}
+.tcs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
+.tc{border:1.5px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600}.tc.home{color:var(--mute)}
+.train{font-size:13px;color:var(--mute);margin:0 2px 8px}
+.ent{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:18px;padding:10px 14px 10px 10px;margin-bottom:8px}
+.dd{flex:none;width:52px;height:52px;border-radius:14px;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1}
+.dd b{font-size:20px}.dd small{font-size:11px;color:var(--mute);text-transform:uppercase}
+.mid{flex:1;min-width:0}.tm{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}.lo{font-size:13px;color:var(--mute);margin-top:2px}
+.du{font-weight:700;font-size:15px}.du.run{color:var(--go)}
+.empty{text-align:center;color:var(--mute);padding:40px 10px;border:1.5px dashed var(--line);border-radius:20px;margin-top:10px}
+.tabs{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 10px);background:var(--bg);border-top:1.5px solid var(--line);max-width:560px;margin:0 auto;z-index:5}
+.tabs button{flex:1;min-height:50px;border-radius:14px;border:1.5px solid var(--line);background:transparent;font-weight:700;font-size:15px;color:var(--mute)}
+.tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.toast{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 84px);max-width:536px;margin:0 auto;background:var(--ink);color:var(--bg);border-radius:16px;padding:8px 8px 8px 16px;display:none;align-items:center;justify-content:space-between;gap:10px;font-size:14px;z-index:12;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.toast.open{display:flex}.toast button{border:0;background:var(--bg);color:var(--ink);border-radius:10px;padding:0 14px;min-height:40px;font-weight:700;font-size:13px}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center;z-index:20}.scrim.open{display:flex}
+.sheet{width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--card);border-radius:26px 26px 0 0;padding:20px 18px calc(env(safe-area-inset-bottom,0px) + 20px);border:1.5px solid var(--line);border-bottom:0}
+.sheet h2{margin:0 0 12px;font-size:22px;letter-spacing:-.02em}
+label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin:12px 0 6px}
+input,select,textarea{width:100%;padding:14px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font:500 16px inherit;font-family:inherit}
+.row{display:flex;gap:10px}.row>div{flex:1}
+.acts{display:flex;gap:10px;margin-top:18px}.acts button{flex:1;padding:15px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);font-weight:700;font-size:15px}
+.acts .save{background:var(--ink);color:var(--bg);border-color:var(--ink);flex:2}.acts .del{color:var(--stop)}
+.mrow{display:block;width:100%;text-align:left;padding:14px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);margin-top:10px}
+.mrow b{display:block;font-size:16px}.mrow small{color:var(--mute);font-size:13px}.mrow[hidden]{display:none}
+.mmsg{color:var(--mute);font-size:13px;min-height:18px;margin:12px 0 0}
+.minfo{margin:14px 0 0;padding-top:12px;border-top:1.5px solid var(--line);color:var(--mute);font-size:13px;line-height:1.5}.minfo b{color:var(--ink)}
+.mhead{display:flex;align-items:center;gap:10px;margin-bottom:4px}.mhead h2{margin:0}
+.mhead button{width:44px;height:44px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);font-size:26px;line-height:1;padding:0}
+#mText{margin-top:10px;height:120px;font-size:12px}
+.lrow{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1.5px solid var(--line)}.lrow span{flex:1;font-weight:600}
+.lrow button{min-height:40px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);padding:0 12px;font-weight:600;font-size:13px;color:var(--mute)}
+.lrow .th.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.addrow{display:flex;gap:8px;margin-top:14px}.addrow button{flex:none;padding:0 16px;border-radius:14px;border:0;background:var(--ink);color:var(--bg);font-weight:700}
+.tip{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);z-index:15;max-width:536px;margin:0 auto;background:var(--ink);color:var(--bg);border-radius:20px;padding:14px 14px 12px;box-shadow:0 10px 30px rgba(0,0,0,.35);display:none}
+.tip.open{display:block}.tip b{display:block;font-size:15px;margin-bottom:4px}.tip p{margin:0 0 10px;font-size:13px;line-height:1.4;opacity:.85}
+.tip .ta{display:flex;gap:8px}.tip button{flex:1;padding:11px;border-radius:12px;border:0;font-weight:700;font-size:14px}.tip .ok{background:var(--bg);color:var(--ink)}.tip .inst{background:var(--accent);color:#fff}.tip button[hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <header><h1>Werk<span>uren</span></h1><button class="burger" id="burger" aria-label="Menu"><i></i><i></i></button></header>
+  <main id="view"></main>
+</div>
+<nav class="tabs"><button data-v="today" class="on">Vandaag</button><button data-v="list">Overzicht</button></nav>
+<div class="toast" id="toast"><span id="toastT"></span><button id="toastU">Ongedaan maken</button></div>
+<div class="tip" id="tip"><b>Installeer Werkuren</b><p id="tipTxt"></p><div class="ta"><button class="inst" id="tipInst" hidden>Installeren</button><button class="ok" id="tipOk">Begrepen</button></div></div>
+
+<div class="scrim" id="scrimE"><div class="sheet">
+  <h2 id="eT">Werkdag aanpassen</h2>
+  <label for="eDate">Datum</label><input id="eDate" type="date">
+  <div class="row"><div><label for="eStart">Start</label><input id="eStart" type="time"></div><div><label for="eEnd">Einde</label><input id="eEnd" type="time"></div></div>
+  <label for="eLoc">Locatie</label><select id="eLoc"></select>
+  <p class="mmsg" id="eMsg"></p>
+  <div class="acts"><button class="del" id="eDel">Verwijder</button><button id="eCancel">Annuleer</button><button class="save" id="eSave">Opslaan</button></div>
+</div></div>
+
+<div class="scrim" id="scrimM"><div class="sheet">
+  <div id="mMain">
+    <h2>Menu</h2>
+    <button class="mrow" id="mLocBtn"><b>Locaties</b><small>Beheer je plaatsen en welke gratis zijn</small></button>
+    <button class="mrow" id="mBackup"><b>Backup en export</b><small>Bewaar je uren of zet ze in Excel</small></button>
+    <p class="minfo"><b>Installeer als app.</b> In Chrome: open het ⋮ menu en kies App installeren. In Safari: tik op Delen en daarna Zet op beginscherm.<br><b>Werkt offline.</b> Zodra de app één keer geladen is, werkt ze zonder internet, geïnstalleerd of niet.</p>
+  </div>
+  <div id="mLoc" hidden>
+    <div class="mhead"><button data-back aria-label="Terug">‹</button><h2>Locaties</h2></div>
+    <p class="mmsg">Zet <b>Thuis</b> aan voor een plaats waar je geen trein nodig hebt, zoals Tienen.</p>
+    <div id="locList"></div>
+    <div class="addrow"><input id="locIn" placeholder="Nieuwe locatie" maxlength="30"><button id="locAdd">Voeg toe</button></div>
+  </div>
+  <div id="mBk" hidden>
+    <div class="mhead"><button data-back aria-label="Terug">‹</button><h2>Backup en export</h2></div>
+    <label>Export</label>
+    <button class="mrow" id="mCsv"><b>Overzicht als CSV</b><small>Opent in Excel, handig voor de terugbetaling</small></button>
+    <button class="mrow" id="mDl"><b>Backup downloaden</b><small>Bewaar al je gegevens als bestand</small></button>
+    <button class="mrow" id="mCp"><b>Backup kopiëren als tekst</b><small>Plak het in een notitie om het te bewaren</small></button>
+    <label>Importeren (vervangt alles)</label>
+    <button class="mrow" id="mImport"><b>Uit bestand</b><small>Kies een opgeslagen backup</small></button>
+    <button class="mrow" id="mPaste"><b>Tekst plakken</b><small>Plak een gekopieerde backup</small></button>
+    <input type="file" id="mFile" accept=".json,application/json,text/plain" hidden>
+    <textarea id="mText" hidden></textarea>
+    <button class="mrow" id="mDoPaste" hidden><b>Deze tekst importeren</b></button>
+    <p class="mmsg" id="mMsg"></p>
+  </div>
+</div></div>
+
+<script>
+(function(){
+var KEY='werkuren.v1',$=function(i){return document.getElementById(i);};
+function defs(){return{entries:[],locs:[{n:'Nossegem'},{n:'Diegem'},{n:'Leuven'},{n:'Tienen',home:1},{n:'Kortenberg'}],last:'Leuven'};}
+function load(){try{var r=JSON.parse(localStorage.getItem(KEY));if(r&&Array.isArray(r.entries)&&Array.isArray(r.locs))return r;}catch(e){}return null;}
+var S=load()||defs(),view='today';
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function p2(n){return n<10?'0'+n:''+n;}
+function hm(ms){var d=new Date(ms);return p2(d.getHours())+':'+p2(d.getMinutes());}
+function dk(ms){var d=new Date(ms);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
+function dur(ms){var m=Math.max(0,Math.round(ms/60000));return Math.floor(m/60)+'u '+p2(m%60)+'m';}
+function clock(ms){var s=Math.max(0,Math.floor(ms/1000));return p2(Math.floor(s/3600))+':'+p2(Math.floor(s/60)%60)+':'+p2(s%60);}
+function at(d,t){var a=d.split('-'),b=t.split(':');return new Date(+a[0],+a[1]-1,+a[2],+b[0],+b[1]).getTime();}
+function act(){return S.entries.find(function(e){return e.end==null;});}
+function isHome(n){var l=S.locs.find(function(x){return x.n===n;});return !!(l&&l.home);}
+function buzz(){try{navigator.vibrate&&navigator.vibrate(15);}catch(e){}}
+function nl(d,o){return d.toLocaleDateString('nl-BE',o);}
+
+function todayTxt(){
+  var now=Date.now(),k=dk(now),t=0,n=0;
+  S.entries.forEach(function(e){if(dk(e.start)===k){n++;t+=(e.end==null?now:e.end)-e.start;}});
+  return n?'Vandaag: '+dur(t):'Nog niets geregistreerd vandaag';
+}
+function rToday(){
+  var a=act(),now=Date.now(),h='<div class="today"><div class="date">'+nl(new Date(),{weekday:'long',day:'numeric',month:'long'})+'</div>';
+  if(!a){
+    h+='<div class="ask">Waar werk je?</div><div class="chips">'+S.locs.map(function(c){return '<button class="lc'+(c.n===S.last?' on':'')+'" data-loc="'+esc(c.n)+'">'+esc(c.n)+'</button>';}).join('')+'<button class="lc add" data-a="newloc" aria-label="Nieuwe locatie">+</button></div>';
+    h+='<button class="big go" data-a="toggle">START</button>';
+  } else {
+    var other=dk(a.start)!==dk(now);
+    h+='<div class="timer" id="timer">'+clock(now-a.start)+'</div><button class="big stop" data-a="toggle">STOP</button>';
+    h+='<button class="sub" data-edit="'+a.id+'">Gestart om '+hm(a.start)+(other?' op '+nl(new Date(a.start),{day:'numeric',month:'short'}):'')+' · '+esc(a.loc||'geen locatie')+'</button>';
+  }
+  return h+'<div class="tot" id="tot">'+todayTxt()+'</div></div>';
+}
+function entHtml(e){
+  var d=new Date(e.start),run=e.end==null;
+  return '<button class="ent" data-edit="'+e.id+'"><div class="dd"><b>'+d.getDate()+'</b><small>'+nl(d,{weekday:'short'})+'</small></div><div class="mid"><div class="tm">'+hm(e.start)+' – '+(run?'…':hm(e.end))+'</div><div class="lo">'+esc(e.loc||'–')+'</div></div><div class="du'+(run?' run':'')+'">'+(run?'bezig':dur(e.end-e.start))+'</div></button>';
+}
+function rList(){
+  var es=S.entries.slice().sort(function(a,b){return b.start-a.start;}),now=Date.now(),h='<div class="list"><button class="addday" data-a="add">+ Dag toevoegen</button>';
+  if(!es.length)return h+'<div class="empty">Nog geen werkdagen.<br>Ze verschijnen hier zodra je op START drukt.</div></div>';
+  var groups=[],map={};
+  es.forEach(function(e){var d=new Date(e.start),k=d.getFullYear()+'-'+p2(d.getMonth()+1);if(!map[k]){map[k]={d:d,items:[]};groups.push(map[k]);}map[k].items.push(e);});
+  groups.forEach(function(g){
+    var tot=0,days={},trips={},per={},train=0;
+    g.items.forEach(function(e){var k=dk(e.start);tot+=(e.end==null?now:e.end)-e.start;days[k]=1;trips[e.loc+'\u0001'+k]=1;});
+    Object.keys(trips).forEach(function(t){var n=t.split('\u0001')[0];per[n]=(per[n]||0)+1;});
+    var chips=Object.keys(per).sort().map(function(n){var hh=isHome(n);if(!hh)train+=per[n];return '<span class="tc'+(hh?' home':'')+'">'+esc(n||'–')+' ×'+per[n]+(hh?' · thuis':'')+'</span>';}).join('');
+    h+='<div class="mh"><b>'+nl(g.d,{month:'long',year:'numeric'})+'</b><span>'+dur(tot)+' · '+Object.keys(days).length+' dagen</span></div><div class="tcs">'+chips+'</div>'+(train?'<div class="train">Treinreizen: '+train+'</div>':'')+g.items.map(entHtml).join('');
+  });
+  return h+'</div>';
+}
+function render(){
+  document.querySelectorAll('.tabs button').forEach(function(b){b.className=b.dataset.v===view?'on':'';});
+  $('view').innerHTML=view==='today'?rToday():rList();
+}
+function tick(){
+  var a=act(),t=$('timer');if(t&&a)t.textContent=clock(Date.now()-a.start);
+  var o=$('tot');if(o)o.textContent=todayTxt();
+}
+setInterval(tick,1000);
+
+var tt=null,undoFn=null;
+function toast(t,u){$('toastT').textContent=t;undoFn=u;$('toast').classList.add('open');clearTimeout(tt);tt=setTimeout(function(){$('toast').classList.remove('open');undoFn=null;},6000);}
+$('toastU').onclick=function(){if(undoFn){undoFn();undoFn=null;}$('toast').classList.remove('open');};
+function toggle(){
+  var a=act(),now=Date.now();buzz();
+  if(a){a.end=now;save();render();toast('Gestopt om '+hm(now)+' · '+dur(now-a.start),function(){a.end=null;save();render();});}
+  else{var e={id:uid(),start:now,end:null,loc:S.last};S.entries.push(e);save();render();toast('Gestart om '+hm(now)+' · '+(e.loc||'geen locatie'),function(){S.entries=S.entries.filter(function(x){return x!==e;});save();render();});}
+}
+$('view').addEventListener('click',function(ev){
+  var b=ev.target.closest('button');if(!b)return;
+  if(b.dataset.a==='toggle')toggle();
+  else if(b.dataset.loc!==undefined){S.last=b.dataset.loc;save();render();}
+  else if(b.dataset.a==='newloc')openMenu('mLoc');
+  else if(b.dataset.edit)openEdit(b.dataset.edit);
+  else if(b.dataset.a==='add')openEdit(null);
+});
+document.querySelector('.tabs').addEventListener('click',function(ev){var b=ev.target.closest('button');if(b){view=b.dataset.v;render();window.scrollTo(0,0);}});
+
+/* edit sheet */
+var editId=null,armDel=false;
+function openEdit(id){
+  var e=id?S.entries.find(function(x){return x.id===id;}):null;editId=e?e.id:null;
+  var names=S.locs.map(function(l){return l.n;});if(e&&e.loc&&names.indexOf(e.loc)<0)names.push(e.loc);
+  $('eT').textContent=e?'Werkdag aanpassen':'Dag toevoegen';
+  $('eLoc').innerHTML=names.map(function(n){return '<option>'+esc(n)+'</option>';}).join('');
+  $('eDate').value=dk(e?e.start:Date.now());$('eStart').value=e?hm(e.start):'09:00';$('eEnd').value=e?(e.end==null?'':hm(e.end)):'17:00';
+  $('eLoc').value=e?e.loc:S.last;
+  $('eDel').style.display=e?'':'none';$('eDel').textContent='Verwijder';armDel=false;$('eMsg').textContent='';
+  $('scrimE').classList.add('open');
+}
+function closeEdit(){$('scrimE').classList.remove('open');}
+$('eCancel').onclick=closeEdit;
+$('scrimE').addEventListener('click',function(e){if(e.target===$('scrimE'))closeEdit();});
+$('eSave').onclick=function(){
+  var d=$('eDate').value,s=$('eStart').value,en=$('eEnd').value;
+  if(!d||!s){$('eMsg').textContent='Vul een datum en een startuur in.';return;}
+  var st=at(d,s),end=en?at(d,en):null;if(end!=null&&end<=st)end+=864e5;
+  var a=act();
+  if(end==null&&!editId){$('eMsg').textContent='Geef ook een einduur op.';return;}
+  if(end==null&&a&&a.id!==editId){$('eMsg').textContent='Er loopt al een werkdag. Geef een einduur op.';return;}
+  var loc=$('eLoc').value;
+  if(editId){var e=S.entries.find(function(x){return x.id===editId;});e.start=st;e.end=end;e.loc=loc;}
+  else S.entries.push({id:uid(),start:st,end:end,loc:loc});
+  save();closeEdit();render();
+};
+$('eDel').onclick=function(){
+  if(!armDel){armDel=true;$('eDel').textContent='Zeker?';setTimeout(function(){armDel=false;$('eDel').textContent='Verwijder';},3000);return;}
+  S.entries=S.entries.filter(function(x){return x.id!==editId;});save();closeEdit();render();
+};
+
+/* menu */
+function msg(t){$('mMsg').textContent=t;}
+function pane(n){['mMain','mLoc','mBk'].forEach(function(i){$(i).hidden=i!==n;});msg('');$('mText').hidden=true;$('mDoPaste').hidden=true;if(n==='mLoc')rLocs();}
+function openMenu(n){pane(n||'mMain');$('scrimM').classList.add('open');}
+$('burger').onclick=function(){openMenu('mMain');};
+$('scrimM').addEventListener('click',function(e){if(e.target===$('scrimM'))$('scrimM').classList.remove('open');});
+document.querySelectorAll('[data-back]').forEach(function(b){b.onclick=function(){pane('mMain');};});
+$('mLocBtn').onclick=function(){pane('mLoc');};
+$('mBackup').onclick=function(){pane('mBk');};
+
+function rLocs(){
+  $('locList').innerHTML=S.locs.map(function(l,i){return '<div class="lrow"><span>'+esc(l.n)+'</span><button class="th'+(l.home?' on':'')+'" data-lh="'+i+'">Thuis</button><button data-ld="'+i+'" aria-label="Verwijder">✕</button></div>';}).join('');
+}
+$('locList').addEventListener('click',function(ev){
+  var b=ev.target.closest('button');if(!b)return;
+  if(b.dataset.lh!==undefined){var l=S.locs[+b.dataset.lh];l.home=l.home?0:1;}
+  else if(b.dataset.ld!==undefined){S.locs.splice(+b.dataset.ld,1);if(!S.locs.some(function(x){return x.n===S.last;}))S.last=S.locs.length?S.locs[0].n:'';}
+  else return;
+  save();rLocs();render();
+});
+function addLoc(){
+  var n=$('locIn').value.replace(/[;\u0001]/g,' ').trim();if(!n)return;
+  if(!S.locs.some(function(x){return x.n.toLowerCase()===n.toLowerCase();}))S.locs.push({n:n});
+  S.last=n;$('locIn').value='';save();rLocs();render();
+}
+$('locAdd').onclick=addLoc;
+$('locIn').addEventListener('keydown',function(e){if(e.key==='Enter')addLoc();});
+
+async function saveFile(fn,text,mime){
+  try{var u=URL.createObjectURL(new Blob([text],{type:mime})),a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u);},4000);return 'started';}catch(x){}
+  try{var f=new File([text],fn,{type:mime});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return 'shared';}}catch(x){if(x&&x.name==='AbortError')return 'cancel';}
+  return 'fail';
+}
+function report(r,alt){msg(r==='cancel'?'Geannuleerd.':r==='fail'?'Downloaden lukt hier niet. '+alt:'Download gestart. Niets te zien? '+alt);}
+function stamp(){return new Date().toISOString().slice(0,10);}
+function json(){return JSON.stringify({app:'werkuren',v:1,entries:S.entries,locs:S.locs,last:S.last},null,2);}
+function csv(){
+  var rows=['Datum;Start;Einde;Duur;Locatie'];
+  S.entries.slice().sort(function(a,b){return a.start-b.start;}).forEach(function(e){
+    var m=e.end==null?null:Math.round((e.end-e.start)/60000);
+    rows.push([dk(e.start).split('-').reverse().join('/'),hm(e.start),e.end==null?'':hm(e.end),m==null?'':Math.floor(m/60)+':'+p2(m%60),String(e.loc||'').replace(/;/g,',')].join(';'));
+  });
+  return '\uFEFF'+rows.join('\r\n');
+}
+$('mCsv').onclick=async function(){report(await saveFile('werkuren-'+stamp()+'.csv',csv(),'text/csv'),'Gebruik Backup kopiëren als tekst.');};
+$('mDl').onclick=async function(){report(await saveFile('werkuren-backup-'+stamp()+'.json',json(),'application/json'),'Gebruik Kopiëren als tekst.');};
+$('mCp').onclick=async function(){
+  var j=json(),ta=$('mText');
+  try{await navigator.clipboard.writeText(j);ta.hidden=true;$('mDoPaste').hidden=true;msg('Gekopieerd. Plak het ergens veilig, bijvoorbeeld in een notitie.');return;}catch(e){}
+  ta.hidden=false;ta.value=j;$('mDoPaste').hidden=true;ta.focus();ta.select();
+  var ok=false;try{ok=document.execCommand('copy');}catch(x){}
+  msg(ok?'Gekopieerd. Plak het ergens veilig, bijvoorbeeld in een notitie.':'Selecteer alles in het vak en kopieer het zelf.');
+};
+function importText(txt){
+  var d;try{d=JSON.parse(txt);}catch(e){msg('Dit is geen geldige backup.');return;}
+  var arr=d&&Array.isArray(d.entries)?d.entries:null;
+  if(!arr){msg('Dit is geen geldige backup.');return;}
+  var es=[];
+  arr.forEach(function(r){
+    if(!r||typeof r.start!=='number')return;
+    es.push({id:(typeof r.id==='string'&&r.id)?r.id:uid(),start:r.start,end:typeof r.end==='number'?r.end:null,loc:typeof r.loc==='string'?r.loc.slice(0,30):''});
+  });
+  if(!es.length){msg('Geen werkdagen gevonden, er is niets veranderd.');return;}
+  var seen=false;es.forEach(function(e){if(e.end==null){if(seen)e.end=e.start;seen=true;}});
+  var ls=Array.isArray(d.locs)?d.locs.filter(function(l){return l&&typeof l.n==='string'&&l.n;}).map(function(l){return l.home?{n:l.n.slice(0,30),home:1}:{n:l.n.slice(0,30)};}):defs().locs;
+  S={entries:es,locs:ls,last:typeof d.last==='string'?d.last:(ls[0]?ls[0].n:'')};
+  save();render();msg('Geïmporteerd: '+es.length+' werkdag'+(es.length===1?'':'en')+'.');
+}
+$('mImport').onclick=function(){$('mFile').click();};
+$('mFile').onchange=function(){var f=this.files&&this.files[0];if(!f)return;var r=new FileReader();r.onload=function(){importText(String(r.result));};r.onerror=function(){msg('Kon dat bestand niet lezen.');};r.readAsText(f);this.value='';};
+$('mPaste').onclick=function(){var ta=$('mText');ta.hidden=false;ta.value='';ta.placeholder='Plak hier de backup';$('mDoPaste').hidden=false;msg('');ta.focus();};
+$('mDoPaste').onclick=function(){var v=$('mText').value.trim();if(!v){msg('Plak eerst de backup.');return;}importText(v);};
+
+/* one-time install tip */
+var deferred=null;
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferred=e;if($('tip').classList.contains('open'))$('tipInst').hidden=false;});
+var ios=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+var standalone=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+var TK='werkuren.tip';
+function tipSeen(){try{return !!localStorage.getItem(TK);}catch(e){return false;}}
+if(/^https?:/.test(location.protocol)&&!standalone&&!tipSeen()){
+  $('tipTxt').textContent=ios?'Tik in Safari op Delen en kies Zet op beginscherm. Daarna werkt het als een app, ook offline.':'Tik in Chrome op het ⋮ menu en kies App installeren. Daarna werkt het als een app, ook offline.';
+  setTimeout(function(){$('tip').classList.add('open');$('tipInst').hidden=!deferred;try{localStorage.setItem(TK,'1');}catch(e){}},1200);
+}
+$('tipOk').onclick=function(){$('tip').classList.remove('open');};
+$('tipInst').onclick=function(){if(!deferred)return;deferred.prompt();deferred.userChoice.then(function(){deferred=null;$('tip').classList.remove('open');});};
+
+render();
+})();
+if("serviceWorker" in navigator && /^https?:/.test(location.protocol)){
+  window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});
+}
+</script>
+</body>
+</html>
