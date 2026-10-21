@@ -33,7 +33,7 @@ h1 span{color:transparent;-webkit-text-stroke:1.5px var(--ink)}
 .lc{border:1.5px solid var(--ink);background:transparent;border-radius:999px;padding:0 16px;min-height:44px;font-weight:600;font-size:15px}
 .lc.on{background:var(--ink);color:var(--bg)}.lc.add{border-color:var(--line);color:var(--mute);padding:0 18px}
 .big{width:min(68vw,270px);aspect-ratio:1;border-radius:50%;border:0;color:#fff;font-size:32px;font-weight:800;letter-spacing:.05em;margin:8px 0;box-shadow:0 14px 40px rgba(0,0,0,.25)}
-.big.go{background:var(--go)}.big.stop{background:var(--stop);animation:pulse 2.2s infinite}
+.big.go{background:var(--go)}.big.stop{background:var(--stop)}
 .big:active{transform:scale(.97)}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(229,83,45,.45)}70%{box-shadow:0 0 0 26px rgba(229,83,45,0)}100%{box-shadow:0 0 0 0 rgba(229,83,45,0)}}
 .timer{font-size:54px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
@@ -150,7 +150,7 @@ function nl(d,o){return d.toLocaleDateString('nl-BE',o);}
 
 function todayTxt(){
   var now=Date.now(),k=dk(now),t=0,n=0;
-  S.entries.forEach(function(e){if(dk(e.start)===k){n++;t+=(e.end==null?now:e.end)-e.start;}});
+  S.entries.forEach(function(e){if(dk(e.start)===k&&e.end!=null){n++;t+=e.end-e.start;}});
   return n?'Vandaag: '+dur(t):'Nog niets geregistreerd vandaag';
 }
 function rToday(){
@@ -160,10 +160,11 @@ function rToday(){
     h+='<button class="big go" data-a="toggle">START</button>';
   } else {
     var other=dk(a.start)!==dk(now);
-    h+='<div class="timer" id="timer">'+clock(now-a.start)+'</div><button class="big stop" data-a="toggle">STOP</button>';
-    h+='<button class="sub" data-edit="'+a.id+'">Gestart om '+hm(a.start)+(other?' op '+nl(new Date(a.start),{day:'numeric',month:'short'}):'')+' · '+esc(a.loc||'geen locatie')+'</button>';
+    h+='<div class="ask">Werkdag gestart om</div><div class="timer">'+hm(a.start)+'</div>';
+    h+='<button class="big stop" data-a="toggle">STOP</button>';
+    h+='<button class="sub" data-edit="'+a.id+'">'+(other?nl(new Date(a.start),{day:'numeric',month:'short'})+' · ':'')+esc(a.loc||'geen locatie')+' · aanpassen</button>';
   }
-  return h+'<div class="tot" id="tot">'+todayTxt()+'</div></div>';
+  return h+(a?'':'<div class="tot">'+todayTxt()+'</div>')+'</div>';
 }
 function entHtml(e){
   var d=new Date(e.start),run=e.end==null;
@@ -176,7 +177,7 @@ function rList(){
   es.forEach(function(e){var d=new Date(e.start),k=d.getFullYear()+'-'+p2(d.getMonth()+1);if(!map[k]){map[k]={d:d,items:[]};groups.push(map[k]);}map[k].items.push(e);});
   groups.forEach(function(g){
     var tot=0,days={},trips={},per={},train=0;
-    g.items.forEach(function(e){var k=dk(e.start);tot+=(e.end==null?now:e.end)-e.start;days[k]=1;trips[e.loc+'\u0001'+k]=1;});
+    g.items.forEach(function(e){var k=dk(e.start);if(e.end!=null)tot+=e.end-e.start;days[k]=1;trips[e.loc+'\u0001'+k]=1;});
     Object.keys(trips).forEach(function(t){var n=t.split('\u0001')[0];per[n]=(per[n]||0)+1;});
     var chips=Object.keys(per).sort().map(function(n){var hh=isHome(n);if(!hh)train+=per[n];return '<span class="tc'+(hh?' home':'')+'">'+esc(n||'–')+' ×'+per[n]+(hh?' · thuis':'')+'</span>';}).join('');
     h+='<div class="mh"><b>'+nl(g.d,{month:'long',year:'numeric'})+'</b><span>'+dur(tot)+' · '+Object.keys(days).length+' dagen</span></div><div class="tcs">'+chips+'</div>'+(train?'<div class="train">Treinreizen: '+train+'</div>':'')+g.items.map(entHtml).join('');
@@ -187,11 +188,7 @@ function render(){
   document.querySelectorAll('.tabs button').forEach(function(b){b.className=b.dataset.v===view?'on':'';});
   $('view').innerHTML=view==='today'?rToday():rList();
 }
-function tick(){
-  var a=act(),t=$('timer');if(t&&a)t.textContent=clock(Date.now()-a.start);
-  var o=$('tot');if(o)o.textContent=todayTxt();
-}
-setInterval(tick,1000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)render();});
 
 var tt=null,undoFn=null;
 function toast(t,u){$('toastT').textContent=t;undoFn=u;$('toast').classList.add('open');clearTimeout(tt);tt=setTimeout(function(){$('toast').classList.remove('open');undoFn=null;},6000);}
