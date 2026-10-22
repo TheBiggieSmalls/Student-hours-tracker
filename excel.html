@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Naar Excel</title>
+<meta name="theme-color" content="#111111">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root{--bg:#f3f1ec;--card:#fff;--ink:#111;--mute:#6b6b66;--line:#dcd9d0;--go:#1f9d63;--warn:#e5532d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#111;--card:#1a1a1a;--ink:#f5f5f2;--mute:#9a9a94;--line:#2e2e2e;--go:#23b574;--warn:#ff6a40}}
+:root[data-theme="dark"]{--bg:#111;--card:#1a1a1a;--ink:#f5f5f2;--mute:#9a9a94;--line:#2e2e2e;--go:#23b574;--warn:#ff6a40}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Helvetica Neue",Inter,system-ui,-apple-system,Roboto,Arial,sans-serif}
+button,input{font-family:inherit;color:inherit}
+.app{max-width:560px;margin:0 auto;padding:14px 16px 60px}
+.back{display:inline-block;padding:10px 0;color:var(--mute);text-decoration:none;font-weight:600}
+h1{margin:4px 0 6px;font-size:34px;letter-spacing:-.04em;font-weight:800;line-height:1}h1 span{color:transparent;-webkit-text-stroke:1.5px var(--ink)}
+.sub{color:var(--mute);font-size:14px;line-height:1.5;margin:0 0 16px}
+.step{background:var(--card);border:1.5px solid var(--line);border-radius:18px;padding:14px;margin-bottom:12px}
+.step b{display:block;font-size:15px;margin-bottom:6px}.step p{margin:4px 0 10px;font-size:14px;color:var(--mute)}
+.btn{display:block;width:100%;min-height:48px;border-radius:14px;border:1.5px solid var(--ink);background:transparent;font-weight:700;font-size:15px}
+.btn.sec{border-color:var(--line);color:var(--mute);font-weight:600}
+.go{display:block;width:100%;min-height:56px;border-radius:16px;border:0;background:var(--ink);color:var(--bg);font-weight:800;font-size:17px;margin:6px 0 14px}
+.go.dl{background:var(--go);color:#fff}
+.row{display:flex;gap:10px}.row>div{flex:1}
+label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin:6px 0}
+input[type=date]{width:100%;padding:13px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font-size:16px}
+.rep h3{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin:16px 2px 6px}
+.li{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:6px;font-size:14px;line-height:1.4}
+.li.w{border-color:var(--warn);color:var(--warn)}.li.m{color:var(--mute)}
+.msg{color:var(--warn);font-size:14px;min-height:20px;margin:0 0 10px}
+</style>
+</head>
+<body>
+<div class="app">
+  <a class="back" href="index.html">‹ Werkuren</a>
+  <h1>Naar <span>Excel</span></h1>
+  <p class="sub">Vul je nieuwe werkdagen automatisch in je bestaande Excel in. Je originele bestand blijft ongewijzigd, je krijgt een bijgewerkte kopie.</p>
+
+  <div class="step"><b>1 · Gegevens uit de app</b><p id="src">Zoeken…</p>
+    <button class="btn sec" id="pickBk">Ander backup-bestand kiezen</button>
+    <input type="file" id="bk" accept=".json,application/json,text/plain" hidden></div>
+
+  <div class="step"><b>2 · Je Excel</b><p id="xlInfo">Nog geen bestand gekozen.</p>
+    <button class="btn" id="pickXl">Excel-bestand kiezen</button>
+    <input type="file" id="xl" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></div>
+
+  <div class="step"><b>3 · Welke dagen?</b>
+    <div class="row"><div><label for="from">Van</label><input type="date" id="from"></div><div><label for="to">Tot en met</label><input type="date" id="to"></div></div>
+    <p>Standaard: alles na de laatste datum die al in je Excel staat. Dagen die er al in staan worden overgeslagen.</p></div>
+
+  <p class="msg" id="msg"></p>
+  <button class="go" id="check">Controleer en vul in</button>
+  <div class="rep" id="rep"></div>
+  <button class="go dl" id="dl" hidden>Download bijgewerkte Excel</button>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="excel-sync.js"></script>
+<script>
+(function(){
+var $=function(i){return document.getElementById(i);},X=window.WerkurenExcel;
+var data=null,xlBuf=null,xlName='uren.xlsx',wb=null;
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function p2(n){return n<10?'0'+n:''+n;}
+function hm(ms){var d=new Date(ms);return p2(d.getHours())+':'+p2(d.getMinutes());}
+function msg(t){$('msg').textContent=t||'';}
+function addDay(k,n){var d=new Date(+k.slice(0,4),+k.slice(5,7)-1,+k.slice(8,10)+n);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
+
+function setData(d,label){
+  var es=(d.entries||[]).filter(function(e){return e&&typeof e.start==='number';});
+  data={entries:es,locs:d.locs||[],prices:d.prices||{}};
+  var fin=es.filter(function(e){return e.end!=null;});
+  $('src').textContent=label+': '+fin.length+' afgesloten werkdag'+(fin.length===1?'':'en')+'.';
+  var last=fin.reduce(function(m,e){var k=X.dk(e.start);return k>m?k:m;},'');
+  if(last)$('to').value=last;
+}
+function tryApp(){try{var r=JSON.parse(localStorage.getItem('werkuren.v1'));if(r&&Array.isArray(r.entries)&&r.entries.length){setData(r,'Uit de app op dit toestel');return;}}catch(e){}
+  $('src').textContent='Geen app-gegevens op dit toestel gevonden. Kies hieronder een backup-bestand.';}
+tryApp();
+
+$('pickBk').onclick=function(){$('bk').click();};
+$('bk').onchange=function(){var f=this.files&&this.files[0];if(!f)return;var r=new FileReader();
+  r.onload=function(){try{var d=JSON.parse(String(r.result));if(!d||!Array.isArray(d.entries))throw 0;setData(d,'Uit backup "'+f.name+'"');msg('');}catch(e){msg('Dat is geen geldige backup van Werkuren.');}};
+  r.readAsText(f);this.value='';};
+
+$('pickXl').onclick=function(){$('xl').click();};
+$('xl').onchange=function(){
+  var f=this.files&&this.files[0];if(!f)return;xlName=f.name;var r=new FileReader();
+  r.onload=async function(){
+    xlBuf=r.result;
+    try{
+      var t=new ExcelJS.Workbook();await t.xlsx.load(xlBuf.slice(0));var last=X.lastSheetDate(t);
+      $('xlInfo').textContent=f.name+(last?' · laatste datum in je Excel: '+X.nlDate(last):' · nog geen datums gevonden');
+      if(last)$('from').value=addDay(last,1);
+      msg('');
+    }catch(e){xlBuf=null;$('xlInfo').textContent='Dit bestand kan ik niet lezen.';msg('Kies een .xlsx-bestand.');}
+  };
+  r.readAsArrayBuffer(f);this.value='';
+};
+
+$('check').onclick=async function(){
+  msg('');$('rep').innerHTML='';$('dl').hidden=true;
+  if(typeof ExcelJS==='undefined'){msg('De Excel-bibliotheek kon niet laden. Controleer je internetverbinding.');return;}
+  if(!data){msg('Er zijn nog geen gegevens uit de app.');return;}
+  if(!xlBuf){msg('Kies eerst je Excel-bestand.');return;}
+  try{
+    wb=new ExcelJS.Workbook();await wb.xlsx.load(xlBuf.slice(0));
+    var rep=X.run(wb,data,{from:$('from').value,to:$('to').value});
+    var h='';
+    if(rep.added.length){
+      h+='<h3>Wordt toegevoegd ('+rep.added.length+')</h3>'+rep.added.map(function(a){return '<div class="li">Rij '+a.row+' · '+X.nlDate(a.date)+' · '+hm(a.start)+'–'+hm(a.end)+' · '+esc(a.loc||'geen locatie')+(a.trip?' · '+a.trip:'')+'</div>';}).join('');
+    } else h+='<div class="li m">Er is niets nieuws om toe te voegen.</div>';
+    if(rep.tickets.length)h+='<h3>Treinkosten en sommen</h3>'+rep.tickets.map(function(t){return '<div class="li">'+esc(t)+'</div>';}).join('');
+    if(rep.warnings.length)h+='<h3>Let op</h3>'+rep.warnings.map(function(t){return '<div class="li w">'+esc(t)+'</div>';}).join('');
+    if(rep.skipped.length)h+='<h3>Overgeslagen</h3>'+rep.skipped.map(function(t){return '<div class="li m">'+esc(t)+'</div>';}).join('');
+    $('rep').innerHTML=h;
+    $('dl').hidden=!rep.added.length;
+  }catch(e){msg('Er ging iets mis bij het lezen van je Excel: '+(e&&e.message?e.message:e));}
+};
+
+$('dl').onclick=async function(){
+  if(!wb)return;
+  try{
+    var buf=await wb.xlsx.writeBuffer(),name=xlName.replace(/\.xlsx$/i,'')+'-bijgewerkt.xlsx';
+    var blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(function(){URL.revokeObjectURL(u);},4000);msg('');
+  }catch(e){msg('Downloaden lukt niet: '+(e&&e.message?e.message:e));}
+};
+})();
+</script>
+</body>
+</html>
