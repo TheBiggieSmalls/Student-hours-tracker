@@ -112,6 +112,7 @@ $('check').onclick=async function(){
       h+='<h3>Wordt toegevoegd ('+rep.added.length+')</h3>'+rep.added.map(function(a){return '<div class="li">Rij '+a.row+' · '+X.nlDate(a.date)+' · '+hm(a.start)+'–'+hm(a.end)+' · '+esc(a.loc||'geen locatie')+(a.trip?' · '+a.trip:'')+'</div>';}).join('');
     } else h+='<div class="li m">Er is niets nieuws om toe te voegen.</div>';
     if(rep.tickets.length)h+='<h3>Treinkosten en sommen</h3>'+rep.tickets.map(function(t){return '<div class="li">'+esc(t)+'</div>';}).join('');
+    if(rep.added.length)h+='<h3>NowJobs-uren</h3>'+(rep.nowjobs.length?rep.nowjobs.map(function(t){return '<div class="li">'+esc(t)+'</div>';}).join(''):'<div class="li m">Geen afwijkende NowJobs-uren ingevuld in de app: NowJobs-kolommen zijn gelijk aan je echte uren (geen verschil).</div>');
     if(rep.warnings.length)h+='<h3>Let op</h3>'+rep.warnings.map(function(t){return '<div class="li w">'+esc(t)+'</div>';}).join('');
     if(rep.skipped.length)h+='<h3>Overgeslagen</h3>'+rep.skipped.map(function(t){return '<div class="li m">'+esc(t)+'</div>';}).join('');
     $('rep').innerHTML=h;

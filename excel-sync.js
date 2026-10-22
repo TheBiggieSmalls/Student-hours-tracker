@@ -80,7 +80,7 @@
   }
 
   function run(wb, data, opts) {
-    var ws = wb.worksheets[0], rep = { added: [], skipped: [], tickets: [], warnings: [], block: null };
+    var ws = wb.worksheets[0], rep = { added: [], skipped: [], tickets: [], warnings: [], nowjobs: [], block: null };
     var blocks = findBlocks(ws);
     if (!blocks.length) { rep.warnings.push('Ik vind geen tabel met een kolom "Datum" in je Excel.'); return rep; }
     var b = blocks[blocks.length - 1];
@@ -120,7 +120,14 @@
       ['A', 'B', 'C', 'D', 'F', 'I', 'J'].forEach(function (c, i) { copyStyle(ws, srcRow, row, 'ABCDEFGHIJ'.indexOf(c) + 1); });
       ws.getCell(row, 1).value = loc + (single && !home ? ' enkel' : '');
       var bc = ws.getCell(row, 2); bc.value = new Date(Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10))); bc.numFmt = DATE_FMT;
-      [[3, e.start], [4, e.end], [9, e.start], [10, e.end]].forEach(function (p) { var c = ws.getCell(row, p[0]); c.value = frac(p[1]); c.numFmt = TIME_FMT; });
+      var hasNj = !!(e.njS && e.njE);
+      function hmFrac(t) { var a = t.split(':'); return (+a[0] * 60 + +a[1]) / 1440; }
+      [[3, frac(e.start)], [4, frac(e.end)], [9, hasNj ? hmFrac(e.njS) : frac(e.start)], [10, hasNj ? hmFrac(e.njE) : frac(e.end)]].forEach(function (p) { var c = ws.getCell(row, p[0]); c.value = p[1]; c.numFmt = TIME_FMT; });
+      if (hasNj) {
+        var njm = hmFrac(e.njS) * 1440, nje = hmFrac(e.njE) * 1440, nj = nje - njm; if (nj < 0) nj += 1440;
+        var diff = Math.round((e.end - e.start) / 60000) - Math.round(nj);
+        rep.nowjobs.push('Rij ' + row + ' · ' + nlDate(k) + ': NowJobs ' + e.njS + '–' + e.njE + ', echt ' + p2(new Date(e.start).getHours()) + ':' + p2(new Date(e.start).getMinutes()) + '–' + p2(new Date(e.end).getHours()) + ':' + p2(new Date(e.end).getMinutes()) + ' → ' + (diff > 0 ? diff + ' min extra te betalen' : diff < 0 ? 'NowJobs telt ' + (-diff) + ' min meer' : 'geen verschil'));
+      }
       var fm = { 5: 'SUM(D' + row + '-C' + row + ')', 7: 'SUM((E' + row + '*24)*2)', 11: 'SUM(J' + row + '-I' + row + ')', 12: 'SUM(E' + row + '-K' + row + ')', 13: 'SUM((24*L' + row + ')*16)' };
       Object.keys(fm).forEach(function (col) { var c = ws.getCell(row, +col); if (!hasFormula(c)) { c.value = { formula: fm[col] }; copyStyle(ws, srcRow, row, +col); } });
       var mf = ws.getCell(row, 13).value; if (mf && mf.formula && /\*-16/.test(mf.formula)) rep.warnings.push('Rij ' + row + ': kolom "Te betalen uren" gebruikt −16 in plaats van 16 (zo gelaten zoals in je sjabloon).');

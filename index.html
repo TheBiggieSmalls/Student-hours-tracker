@@ -76,6 +76,7 @@ input,select,textarea{width:100%;padding:14px;border-radius:14px;border:1.5px so
 .lrow button{min-height:40px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);padding:0 12px;font-weight:600;font-size:13px;color:var(--mute)}
 .lrow .th.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .addrow{display:flex;gap:8px;margin-top:14px}.addrow button{flex:none;padding:0 16px;border-radius:14px;border:0;background:var(--ink);color:var(--bg);font-weight:700}
+.nj{font-size:12px;color:var(--warn);margin-top:2px}
 .seg{display:flex;border:1.5px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card)}
 .seg button{border:0;background:transparent;padding:0 18px;min-height:44px;font-weight:600;font-size:14px;color:var(--mute)}
 .seg button.on{background:var(--ink);color:var(--bg)}
@@ -102,6 +103,8 @@ input,select,textarea{width:100%;padding:14px;border-radius:14px;border:1.5px so
   <div class="row"><div><label for="eStart">Start</label><input id="eStart" type="time"></div><div><label for="eEnd">Einde</label><input id="eEnd" type="time"></div></div>
   <label for="eLoc">Locatie</label><select id="eLoc"></select>
   <label for="eTrip">Treinrit</label><select id="eTrip"><option value="rt">Heen en terug</option><option value="single">Enkel</option></select>
+  <div class="row"><div><label for="eNs">NowJobs start</label><input id="eNs" type="time"></div><div><label for="eNe">NowJobs einde</label><input id="eNe" type="time"></div></div>
+  <p class="mmsg">NowJobs-uren alleen invullen als ze anders zijn dan jouw echte uren.</p>
   <p class="mmsg" id="eMsg"></p>
   <div class="acts"><button class="del" id="eDel">Verwijder</button><button id="eCancel">Annuleer</button><button class="save" id="eSave">Opslaan</button></div>
 </div></div>
@@ -177,6 +180,8 @@ function cleanPrices(o){
 }
 function priceAt(loc,k){var list=S.prices[loc]||[],best=null;list.forEach(function(p){if(p.from<=k&&(!best||p.from>best.from))best=p;});return best||(list.length?list[0]:null);}
 function money(n){return '€ '+(Math.round(n*100)/100).toFixed(2).replace('.',',');}
+function mins(t){var a=t.split(':');return +a[0]*60+ +a[1];}
+function njLine(e){if(!e.njS||!e.njE||e.end==null)return '';var nj=mins(e.njE)-mins(e.njS);if(nj<0)nj+=1440;var d=Math.round((e.end-e.start)/60000)-nj;return '<div class="nj">NowJobs '+e.njS+'–'+e.njE+' · '+(d>0?d+' min extra te betalen':d<0?'NowJobs telt '+(-d)+' min meer':'zelfde uren')+'</div>';}
 function tripTxt(e){return (!e.loc||isHome(e.loc))?'':' · '+(e.trip==='single'?'enkel':'heen & terug');}
 function nl(d,o){return d.toLocaleDateString('nl-BE',o);}
 
@@ -201,7 +206,7 @@ function rToday(){
 }
 function entHtml(e){
   var d=new Date(e.start),run=e.end==null;
-  return '<button class="ent" data-edit="'+e.id+'"><div class="dd"><b>'+d.getDate()+'</b><small>'+nl(d,{weekday:'short'})+'</small></div><div class="mid"><div class="tm">'+hm(e.start)+' – '+(run?'…':hm(e.end))+'</div><div class="lo">'+esc((e.loc||'–')+tripTxt(e))+'</div></div><div class="du'+(run?' run':'')+'">'+(run?'bezig':dur(e.end-e.start))+'</div></button>';
+  return '<button class="ent" data-edit="'+e.id+'"><div class="dd"><b>'+d.getDate()+'</b><small>'+nl(d,{weekday:'short'})+'</small></div><div class="mid"><div class="tm">'+hm(e.start)+' – '+(run?'…':hm(e.end))+'</div><div class="lo">'+esc((e.loc||'–')+tripTxt(e))+'</div>'+njLine(e)+'</div><div class="du'+(run?' run':'')+'">'+(run?'bezig':dur(e.end-e.start))+'</div></button>';
 }
 function rList(){
   var es=S.entries.slice().sort(function(a,b){return b.start-a.start;}),now=Date.now(),h='<div class="list"><button class="addday" data-a="add">+ Dag toevoegen</button>';
@@ -251,7 +256,7 @@ function openEdit(id){
   $('eT').textContent=e?'Werkdag aanpassen':'Dag toevoegen';
   $('eLoc').innerHTML=names.map(function(n){return '<option>'+esc(n)+'</option>';}).join('');
   $('eDate').value=dk(e?e.start:Date.now());$('eStart').value=e?hm(e.start):'09:00';$('eEnd').value=e?(e.end==null?'':hm(e.end)):'17:00';
-  $('eLoc').value=e?e.loc:S.last;$('eTrip').value=e&&e.trip==='single'?'single':'rt';
+  $('eLoc').value=e?e.loc:S.last;$('eTrip').value=e&&e.trip==='single'?'single':'rt';$('eNs').value=(e&&e.njS)||'';$('eNe').value=(e&&e.njE)||'';
   $('eDel').style.display=e?'':'none';$('eDel').textContent='Verwijder';armDel=false;$('eMsg').textContent='';
   $('scrimE').classList.add('open');
 }
@@ -265,9 +270,10 @@ $('eSave').onclick=function(){
   var a=act();
   if(end==null&&!editId){$('eMsg').textContent='Geef ook een einduur op.';return;}
   if(end==null&&a&&a.id!==editId){$('eMsg').textContent='Er loopt al een werkdag. Geef een einduur op.';return;}
-  var loc=$('eLoc').value,trip=$('eTrip').value;
-  if(editId){var e=S.entries.find(function(x){return x.id===editId;});e.start=st;e.end=end;e.loc=loc;e.trip=trip;}
-  else S.entries.push({id:uid(),start:st,end:end,loc:loc,trip:trip});
+  var loc=$('eLoc').value,trip=$('eTrip').value,ns=$('eNs').value,ne=$('eNe').value;
+  if(!!ns!==!!ne){$('eMsg').textContent='Vul beide NowJobs-uren in, of laat ze allebei leeg.';return;}
+  if(editId){var e=S.entries.find(function(x){return x.id===editId;});e.start=st;e.end=end;e.loc=loc;e.trip=trip;e.njS=ns||undefined;e.njE=ne||undefined;}
+  else S.entries.push({id:uid(),start:st,end:end,loc:loc,trip:trip,njS:ns||undefined,njE:ne||undefined});
   save();closeEdit();render();
 };
 $('eDel').onclick=function(){
@@ -368,7 +374,7 @@ function importText(txt){
   var es=[];
   arr.forEach(function(r){
     if(!r||typeof r.start!=='number')return;
-    es.push({id:(typeof r.id==='string'&&r.id)?r.id:uid(),start:r.start,end:typeof r.end==='number'?r.end:null,loc:typeof r.loc==='string'?r.loc.slice(0,30):'',trip:r.trip==='single'?'single':'rt'});
+    es.push({id:(typeof r.id==='string'&&r.id)?r.id:uid(),start:r.start,end:typeof r.end==='number'?r.end:null,loc:typeof r.loc==='string'?r.loc.slice(0,30):'',trip:r.trip==='single'?'single':'rt',njS:typeof r.njS==='string'?r.njS:undefined,njE:typeof r.njE==='string'?r.njE:undefined});
   });
   if(!es.length){msg('Geen werkdagen gevonden, er is niets veranderd.');return;}
   var seen=false;es.forEach(function(e){if(e.end==null){if(seen)e.end=e.start;seen=true;}});
