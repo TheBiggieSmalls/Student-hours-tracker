@@ -77,6 +77,15 @@ input,select,textarea{width:100%;padding:14px;border-radius:14px;border:1.5px so
 .lrow .th.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .addrow{display:flex;gap:8px;margin-top:14px}.addrow button{flex:none;padding:0 16px;border-radius:14px;border:0;background:var(--ink);color:var(--bg);font-weight:700}
 .nj{font-size:12px;color:var(--warn);margin-top:2px}
+.pay{text-align:left;padding-top:8px}
+.paytot{font-size:48px;font-weight:800;letter-spacing:-.03em;margin:2px 0 0;font-variant-numeric:tabular-nums}
+.pr{display:flex;justify-content:space-between;align-items:center;width:100%;padding:11px 2px;border:0;border-bottom:1.5px solid var(--line);background:none;font-size:15px;text-align:left}
+.pr b{font-variant-numeric:tabular-nums}.pr.tap span::after{content:' ✎';color:var(--mute)}
+.pr.sum{border-bottom:0;font-size:18px;font-weight:800}
+.paybtn{display:block;width:100%;min-height:56px;border-radius:16px;border:0;background:var(--go);color:#fff;font-weight:800;font-size:17px;margin:18px 0 4px}
+.sech{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin:22px 2px 8px}
+.hist{display:flex;justify-content:space-between;width:100%;padding:14px;border:1.5px solid var(--line);border-radius:14px;background:var(--card);margin-bottom:6px;font-size:14px;text-align:left}
+.hd{margin:0 4px 10px;padding:4px 10px;border:1.5px solid var(--line);border-radius:14px}
 .seg{display:flex;border:1.5px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card)}
 .seg button{border:0;background:transparent;padding:0 18px;min-height:44px;font-weight:600;font-size:14px;color:var(--mute)}
 .seg button.on{background:var(--ink);color:var(--bg)}
@@ -93,7 +102,7 @@ input,select,textarea{width:100%;padding:14px;border-radius:14px;border:1.5px so
   <header><h1>Werk<span>uren</span></h1><button class="burger" id="burger" aria-label="Menu"><i></i><i></i></button></header>
   <main id="view"></main>
 </div>
-<nav class="tabs"><button data-v="today" class="on">Vandaag</button><button data-v="list">Overzicht</button></nav>
+<nav class="tabs"><button data-v="today" class="on">Vandaag</button><button data-v="list">Overzicht</button><button data-v="pay">Uitbetaling</button></nav>
 <div class="toast" id="toast"><span id="toastT"></span><button id="toastU">Ongedaan maken</button></div>
 <div class="tip" id="tip"><b>Installeer Werkuren</b><p id="tipTxt"></p><div class="ta"><button class="inst" id="tipInst" hidden>Installeren</button><button class="ok" id="tipOk">Begrepen</button></div></div>
 
@@ -117,11 +126,26 @@ input,select,textarea{width:100%;padding:14px;border-radius:14px;border:1.5px so
   <p class="mmsg" id="pMsg"></p>
   <div class="acts"><button id="pCancel">Annuleer</button><button class="save" id="pSave">Opslaan</button></div>
 </div></div>
+<div class="scrim" id="scrimC"><div class="sheet">
+  <h2>Periode afsluiten</h2>
+  <p class="mmsg" id="cInfo"></p>
+  <label for="cRec">Effectief ontvangen (€)</label><input id="cRec" type="text" inputmode="decimal">
+  <label for="cDate">Betaald op</label><input id="cDate" type="date">
+  <p class="mmsg" id="cDiff"></p>
+  <div class="acts"><button id="cCancel">Annuleer</button><button class="save" id="cOk">Betaald, nieuwe periode</button></div>
+</div></div>
+<div class="scrim" id="scrimA"><div class="sheet">
+  <h2>Aanpassen</h2>
+  <label for="aCarry">Vorige keer tekort / teveel (−) (€)</label><input id="aCarry" type="text" inputmode="decimal">
+  <label for="aSun">150% zondag (€)</label><input id="aSun" type="text" inputmode="decimal">
+  <p class="mmsg">Tekort is positief, teveel negatief, zoals in je Excel.</p>
+  <div class="acts"><button id="aCancel">Annuleer</button><button class="save" id="aOk">Opslaan</button></div>
+</div></div>
 <div class="scrim" id="scrimM"><div class="sheet">
   <div id="mMain">
     <h2>Menu</h2>
     <button class="mrow" id="mLocBtn"><b>Locaties</b><small>Beheer je plaatsen en welke gratis zijn</small></button>
-    <button class="mrow" id="mPrBtn"><b>Ticketprijzen</b><small>Prijs per plaats, met prijsgeschiedenis</small></button>
+    <button class="mrow" id="mPrBtn"><b>Prijzen en tarieven</b><small>Tickets, uurtarieven en prijsgeschiedenis</small></button>
     <button class="mrow" id="mXls"><b>Naar Excel</b><small>Vul je uren automatisch in je Excel in</small></button>
     <button class="mrow" id="mBackup"><b>Backup en export</b><small>Bewaar je uren of maak een CSV</small></button>
     <p class="minfo"><b>Installeer als app.</b> In Chrome: open het ⋮ menu en kies App installeren. In Safari: tik op Delen en daarna Zet op beginscherm.<br><b>Werkt offline.</b> Zodra de app één keer geladen is, werkt ze zonder internet, geïnstalleerd of niet.</p>
@@ -133,7 +157,9 @@ input,select,textarea{width:100%;padding:14px;border-radius:14px;border:1.5px so
     <div class="addrow"><input id="locIn" placeholder="Nieuwe locatie" maxlength="30"><button id="locAdd">Voeg toe</button></div>
   </div>
   <div id="mPr" hidden>
-    <div class="mhead"><button data-back aria-label="Terug">‹</button><h2>Ticketprijzen</h2></div>
+    <div class="mhead"><button data-back aria-label="Terug">‹</button><h2>Prijzen en tarieven</h2></div>
+    <label>Tarieven per uur</label>
+    <div class="row"><div><label for="rEx">Extra per uur (€)</label><input id="rEx" type="text" inputmode="decimal"></div><div><label for="rNj">NowJobs-verschil (€)</label><input id="rNj" type="text" inputmode="decimal"></div></div>
     <p class="mmsg">Prijs per ticket. Wordt een ticket duurder, voeg dan een nieuwe prijs toe met een startdatum. Oudere dagen blijven met de oude prijs berekend.</p>
     <div id="prList"></div>
     <button class="mrow" id="prAdd"><b>+ Nieuwe prijs</b><small>Bijvoorbeeld na een prijsstijging</small></button>
@@ -160,6 +186,7 @@ var KEY='werkuren.v1',$=function(i){return document.getElementById(i);};
 function defs(){return{entries:[],locs:[{n:'Nossegem'},{n:'Diegem'},{n:'Leuven'},{n:'Tienen',home:1},{n:'Kortenberg'}],last:'Leuven',prices:defPrices(),trip:'rt'};}
 function load(){try{var r=JSON.parse(localStorage.getItem(KEY));if(r&&Array.isArray(r.entries)&&Array.isArray(r.locs))return r;}catch(e){}return null;}
 var S=load()||defs(),view='today';if(!S.prices)S.prices=defPrices();if(!S.trip)S.trip='rt';
+if(!S.cur)S.cur=uid();S.entries.forEach(function(e){if(!e.p)e.p=S.cur;});if(!Array.isArray(S.periods))S.periods=[];if(typeof S.carry!=='number')S.carry=0;if(typeof S.sun!=='number')S.sun=0;if(!S.rates)S.rates={extra:2,nj:16};
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -225,7 +252,7 @@ function rList(){
 }
 function render(){
   document.querySelectorAll('.tabs button').forEach(function(b){b.className=b.dataset.v===view?'on':'';});
-  $('view').innerHTML=view==='today'?rToday():rList();
+  $('view').innerHTML=view==='today'?rToday():view==='pay'?rPay():rList();
 }
 document.addEventListener('visibilitychange',function(){if(!document.hidden)render();});
 
@@ -235,7 +262,7 @@ $('toastU').onclick=function(){if(undoFn){undoFn();undoFn=null;}$('toast').class
 function toggle(){
   var a=act(),now=Date.now();buzz();
   if(a){a.end=now;save();render();toast('Gestopt om '+hm(now)+' · '+dur(now-a.start),function(){a.end=null;save();render();});}
-  else{var e={id:uid(),start:now,end:null,loc:S.last,trip:isHome(S.last)?'rt':S.trip};S.entries.push(e);S.trip='rt';save();render();toast('Gestart om '+hm(now)+' · '+(e.loc||'geen locatie'),function(){S.entries=S.entries.filter(function(x){return x!==e;});save();render();});}
+  else{var e={id:uid(),p:S.cur,start:now,end:null,loc:S.last,trip:isHome(S.last)?'rt':S.trip};S.entries.push(e);S.trip='rt';save();render();toast('Gestart om '+hm(now)+' · '+(e.loc||'geen locatie'),function(){S.entries=S.entries.filter(function(x){return x!==e;});save();render();});}
 }
 $('view').addEventListener('click',function(ev){
   var b=ev.target.closest('button');if(!b)return;
@@ -245,6 +272,9 @@ $('view').addEventListener('click',function(ev){
   else if(b.dataset.trip){S.trip=b.dataset.trip;save();render();}
   else if(b.dataset.edit)openEdit(b.dataset.edit);
   else if(b.dataset.a==='add')openEdit(null);
+  else if(b.dataset.a==='close')openClose();
+  else if(b.dataset.a==='adj')openAdj();
+  else if(b.dataset.a==='hist'){openHist=openHist===b.dataset.pid?null:b.dataset.pid;render();}
 });
 document.querySelector('.tabs').addEventListener('click',function(ev){var b=ev.target.closest('button');if(b){view=b.dataset.v;render();window.scrollTo(0,0);}});
 
@@ -273,13 +303,78 @@ $('eSave').onclick=function(){
   var loc=$('eLoc').value,trip=$('eTrip').value,ns=$('eNs').value,ne=$('eNe').value;
   if(!!ns!==!!ne){$('eMsg').textContent='Vul beide NowJobs-uren in, of laat ze allebei leeg.';return;}
   if(editId){var e=S.entries.find(function(x){return x.id===editId;});e.start=st;e.end=end;e.loc=loc;e.trip=trip;e.njS=ns||undefined;e.njE=ne||undefined;}
-  else S.entries.push({id:uid(),start:st,end:end,loc:loc,trip:trip,njS:ns||undefined,njE:ne||undefined});
+  else S.entries.push({id:uid(),p:S.cur,start:st,end:end,loc:loc,trip:trip,njS:ns||undefined,njE:ne||undefined});
   save();closeEdit();render();
 };
 $('eDel').onclick=function(){
   if(!armDel){armDel=true;$('eDel').textContent='Zeker?';setTimeout(function(){armDel=false;$('eDel').textContent='Verwijder';},3000);return;}
   S.entries=S.entries.filter(function(x){return x.id!==editId;});save();closeEdit();render();
 };
+
+/* uitbetaling */
+var openHist=null;
+function r2(x){return Math.round(x*100)/100;}
+function calc(es){
+  var tot=0,extra=0,nj=0,train=0,seen={};
+  es.forEach(function(e){
+    if(e.end==null)return;
+    var m=(e.end-e.start)/60000;tot+=m;extra+=m/60*S.rates.extra;
+    if(e.njS&&e.njE){var n=mins(e.njE)-mins(e.njS);if(n<0)n+=1440;var d=Math.round(m)-n;if(d>0)nj+=d/60*S.rates.nj;}
+    var k=dk(e.start)+'\u0001'+e.loc;
+    if(e.loc&&!isHome(e.loc)&&!seen[k]){seen[k]=1;var pr=priceAt(e.loc,dk(e.start));if(pr)train+=e.trip==='single'?pr.single:pr.rt;}
+  });
+  return{mins:Math.round(tot),extra:r2(extra),nj:r2(nj),train:r2(train),sub:r2(extra+nj+train)};
+}
+function curEntries(){return S.entries.filter(function(e){return e.p===S.cur;});}
+function prow(l,v,extra){return '<div class="pr'+(extra||'')+'"><span>'+l+'</span><b>'+v+'</b></div>';}
+function rPay(){
+  var es=curEntries(),c=calc(es),total=r2(c.sub+S.carry+S.sun),ks=es.map(function(e){return e.start;});
+  var rng=ks.length?'Periode '+nl(new Date(Math.min.apply(null,ks)),{day:'numeric',month:'short'})+' – '+nl(new Date(Math.max.apply(null,ks)),{day:'numeric',month:'short'}):'Nieuwe periode, begint bij € 0,00';
+  var h='<div class="pay"><div class="date">'+rng+'</div><div class="paytot">'+money(total)+'</div><div class="ask" style="margin:0 0 10px">Te ontvangen deze periode</div>';
+  h+=prow('Gewerkte uren',dur(c.mins*60000))+prow('Extra '+money(S.rates.extra)+' per uur',money(c.extra))+prow('NowJobs-verschil',money(c.nj))+prow('Treinkosten',money(c.train));
+  h+='<button class="pr tap" data-a="adj"><span>Vorige keer tekort / teveel</span><b>'+money(S.carry)+'</b></button><button class="pr tap" data-a="adj"><span>150% zondag</span><b>'+money(S.sun)+'</b></button>'+prow('Totaal',money(total),' sum');
+  h+='<button class="paybtn" data-a="close">Betaald, nieuwe periode starten</button>';
+  h+='<div class="sech">Dagen in deze periode</div><button class="addday" data-a="add">+ Dag toevoegen</button>';
+  h+=es.length?es.slice().sort(function(a,b){return b.start-a.start;}).map(entHtml).join(''):'<div class="empty">Nog geen dagen in deze periode.</div>';
+  if(S.periods.length){
+    h+='<div class="sech">Eerdere periodes</div>'+S.periods.map(function(p){
+      var o=openHist===p.id,df=p.diff||0;
+      return '<button class="hist" data-a="hist" data-pid="'+esc(p.id)+'"><span>'+nl(new Date(p.from),{day:'numeric',month:'short'})+' – '+nl(new Date(p.to),{day:'numeric',month:'short',year:'numeric'})+'</span><b>'+money(p.total)+'</b></button>'+
+        (o?'<div class="hd">'+prow('Gewerkte uren',dur(p.c.mins*60000))+prow('Extra per uur',money(p.c.extra))+prow('NowJobs-verschil',money(p.c.nj))+prow('Treinkosten',money(p.c.train))+prow('Vorige keer',money(p.carry))+prow('150% zondag',money(p.sun))+prow('Totaal',money(p.total))+prow('Ontvangen op '+p.paidOn.split('-').reverse().join('/'),money(p.received))+prow(df>0?'Tekort':df<0?'Teveel':'Verschil',money(Math.abs(df)),' sum')+'</div>':'');
+    }).join('');
+  }
+  return h+'</div>';
+}
+function openClose(){
+  var es=curEntries(),a=act();
+  if(!es.length){toast('Nog geen dagen in deze periode.');return;}
+  if(a&&a.p===S.cur){toast('Sluit eerst je lopende werkdag af met STOP.');return;}
+  var c=calc(es),total=r2(c.sub+S.carry+S.sun);
+  $('cInfo').textContent='Totaal te ontvangen: '+money(total);$('cRec').value=String(total).replace('.',',');$('cDate').value=dk(Date.now());cDiff();
+  $('scrimC').classList.add('open');
+}
+function cDiff(){
+  var c=calc(curEntries()),total=r2(c.sub+S.carry+S.sun),rec=num2($('cRec').value);
+  if(isNaN(rec)){$('cDiff').textContent='';return;}
+  var d=r2(total-rec);
+  $('cDiff').textContent=d===0?'Geen verschil. De nieuwe periode begint bij € 0,00.':(d>0?'Tekort van '+money(d)+': dit wordt bijgeteld in de nieuwe periode.':'Teveel van '+money(-d)+': dit wordt afgetrokken in de nieuwe periode.');
+}
+$('cRec').addEventListener('input',cDiff);
+$('cCancel').onclick=function(){$('scrimC').classList.remove('open');};
+$('scrimC').addEventListener('click',function(e){if(e.target===$('scrimC'))$('scrimC').classList.remove('open');});
+$('cOk').onclick=function(){
+  var es=curEntries(),c=calc(es),total=r2(c.sub+S.carry+S.sun),rec=num2($('cRec').value);
+  if(isNaN(rec)){$('cDiff').textContent='Vul het ontvangen bedrag in.';return;}
+  var ks=es.map(function(e){return e.start;}),diff=r2(total-rec);
+  S.periods.unshift({id:S.cur,from:Math.min.apply(null,ks),to:Math.max.apply(null,ks),paidOn:$('cDate').value||dk(Date.now()),n:es.length,c:c,carry:S.carry,sun:S.sun,total:total,received:r2(rec),diff:diff});
+  S.cur=uid();S.carry=diff;S.sun=0;save();$('scrimC').classList.remove('open');view='pay';openHist=null;render();window.scrollTo(0,0);toast('Betaald ✓ Nieuwe periode gestart');
+};
+function openAdj(){$('aCarry').value=String(S.carry).replace('.',',');$('aSun').value=String(S.sun).replace('.',',');$('scrimA').classList.add('open');}
+$('aCancel').onclick=function(){$('scrimA').classList.remove('open');};
+$('scrimA').addEventListener('click',function(e){if(e.target===$('scrimA'))$('scrimA').classList.remove('open');});
+$('aOk').onclick=function(){var a=num2($('aCarry').value),b=num2($('aSun').value);S.carry=isNaN(a)?0:r2(a);S.sun=isNaN(b)?0:r2(b);save();$('scrimA').classList.remove('open');render();};
+function rateIn(id,key){$(id).onchange=function(){var v=num2(this.value);if(!isNaN(v)&&v>=0){S.rates[key]=v;save();render();}else this.value=String(S.rates[key]).replace('.',',');};}
+rateIn('rEx','extra');rateIn('rNj','nj');
 
 /* menu */
 function msg(t){$('mMsg').textContent=t;}
@@ -293,6 +388,7 @@ $('mBackup').onclick=function(){pane('mBk');};
 $('mPrBtn').onclick=function(){pane('mPr');};
 $('mXls').onclick=function(){location.href='excel.html';};
 function rPrices(){
+  $('rEx').value=String(S.rates.extra).replace('.',',');$('rNj').value=String(S.rates.nj).replace('.',',');
   var h='';
   S.locs.filter(function(l){return !l.home;}).forEach(function(l){
     var list=(S.prices[l.n]||[]).map(function(p,i){return{p:p,i:i};}).reverse();
@@ -349,7 +445,7 @@ async function saveFile(fn,text,mime){
 }
 function report(r,alt){msg(r==='cancel'?'Geannuleerd.':r==='fail'?'Downloaden lukt hier niet. '+alt:'Download gestart. Niets te zien? '+alt);}
 function stamp(){return new Date().toISOString().slice(0,10);}
-function json(){return JSON.stringify({app:'werkuren',v:2,entries:S.entries,locs:S.locs,last:S.last,prices:S.prices},null,2);}
+function json(){return JSON.stringify({app:'werkuren',v:3,entries:S.entries,locs:S.locs,last:S.last,prices:S.prices,cur:S.cur,periods:S.periods,carry:S.carry,sun:S.sun,rates:S.rates},null,2);}
 function csv(){
   var rows=['Datum;Start;Einde;Duur;Locatie;Treinrit'];
   S.entries.slice().sort(function(a,b){return a.start-b.start;}).forEach(function(e){
@@ -374,12 +470,16 @@ function importText(txt){
   var es=[];
   arr.forEach(function(r){
     if(!r||typeof r.start!=='number')return;
-    es.push({id:(typeof r.id==='string'&&r.id)?r.id:uid(),start:r.start,end:typeof r.end==='number'?r.end:null,loc:typeof r.loc==='string'?r.loc.slice(0,30):'',trip:r.trip==='single'?'single':'rt',njS:typeof r.njS==='string'?r.njS:undefined,njE:typeof r.njE==='string'?r.njE:undefined});
+    es.push({id:(typeof r.id==='string'&&r.id)?r.id:uid(),start:r.start,end:typeof r.end==='number'?r.end:null,loc:typeof r.loc==='string'?r.loc.slice(0,30):'',trip:r.trip==='single'?'single':'rt',njS:typeof r.njS==='string'?r.njS:undefined,njE:typeof r.njE==='string'?r.njE:undefined,p:typeof r.p==='string'?r.p:undefined});
   });
   if(!es.length){msg('Geen werkdagen gevonden, er is niets veranderd.');return;}
   var seen=false;es.forEach(function(e){if(e.end==null){if(seen)e.end=e.start;seen=true;}});
   var ls=Array.isArray(d.locs)?d.locs.filter(function(l){return l&&typeof l.n==='string'&&l.n;}).map(function(l){return l.home?{n:l.n.slice(0,30),home:1}:{n:l.n.slice(0,30)};}):defs().locs;
   S={entries:es,locs:ls,last:typeof d.last==='string'?d.last:(ls[0]?ls[0].n:''),prices:cleanPrices(d.prices),trip:'rt'};
+  S.cur=(typeof d.cur==='string'&&d.cur)?d.cur:uid();S.periods=Array.isArray(d.periods)?d.periods.filter(function(p){return p&&p.id&&p.c&&typeof p.total==='number';}):[];
+  S.carry=typeof d.carry==='number'?d.carry:0;S.sun=typeof d.sun==='number'?d.sun:0;
+  S.rates=(d.rates&&typeof d.rates.extra==='number'&&typeof d.rates.nj==='number')?d.rates:{extra:2,nj:16};
+  S.entries.forEach(function(e){if(!e.p)e.p=S.cur;});
   save();render();msg('Geïmporteerd: '+es.length+' werkdag'+(es.length===1?'':'en')+'.');
 }
 $('mImport').onclick=function(){$('mFile').click();};
