@@ -46,11 +46,7 @@ input[type=date]{width:100%;padding:13px;border-radius:14px;border:1.5px solid v
     <button class="btn" id="pickXl">Excel-bestand kiezen</button>
     <input type="file" id="xl" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></div>
 
-  <div class="step"><b>Excel naar de app</b>
-    <p>Neem de dagen van het laatste blok uit je Excel over in de huidige periode van de app, samen met "Vorige keer tekort / teveel". Dagen die al in de app staan worden overgeslagen.</p>
-    <button class="btn" id="toApp">Laatste blok in de app laden</button><div id="toAppRep"></div></div>
-
-  <div class="step"><b>3 · Welke dagen naar je Excel?</b>
+  <div class="step"><b>3 · Welke dagen?</b>
     <div class="row"><div><label for="from">Van</label><input type="date" id="from"></div><div><label for="to">Tot en met</label><input type="date" id="to"></div></div>
     <p>Standaard: alles na de laatste datum die al in je Excel staat. Dagen die er al in staan worden overgeslagen.</p></div>
 
@@ -59,7 +55,7 @@ input[type=date]{width:100%;padding:13px;border-radius:14px;border:1.5px solid v
   <div class="rep" id="rep"></div>
   <button class="go dl" id="dl" hidden>Download bijgewerkte Excel</button>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="exceljs.min.js"></script>
 <script src="excel-sync.js"></script>
 <script>
 (function(){
@@ -88,31 +84,6 @@ $('bk').onchange=function(){var f=this.files&&this.files[0];if(!f)return;var r=n
   r.onload=function(){try{var d=JSON.parse(String(r.result));if(!d||!Array.isArray(d.entries))throw 0;setData(d,'Uit backup "'+f.name+'"');msg('');}catch(e){msg('Dat is geen geldige backup van Werkuren.');}};
   r.readAsText(f);this.value='';};
 
-$('toApp').onclick=async function(){
-  msg('');$('toAppRep').innerHTML='';
-  var S;try{S=JSON.parse(localStorage.getItem('werkuren.v1'));}catch(e){}
-  if(!S||!Array.isArray(S.entries)){msg('Open eerst de Werkuren-app een keer op dit toestel.');return;}
-  if(!xlBuf){msg('Kies eerst je Excel-bestand.');return;}
-  if(typeof ExcelJS==='undefined'){msg('De Excel-bibliotheek kon niet laden. Controleer je internetverbinding.');return;}
-  try{
-    var w=new ExcelJS.Workbook();await w.xlsx.load(xlBuf.slice(0));
-    var rd=X.readLast(w,(S.locs||[]).map(function(l){return l.n;}));
-    if(!S.cur)S.cur='p'+Date.now().toString(36);
-    var had=S.entries.some(function(e){return (e.p||S.cur)===S.cur;}),days={};
-    S.entries.forEach(function(e){days[X.dk(e.start)]=1;});
-    var add=0,skip=[];
-    rd.entries.forEach(function(e){var k=X.dk(e.start);if(days[k]){skip.push(X.nlDate(k)+' staat al in de app');return;}days[k]=1;S.entries.push(Object.assign({id:'x'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),p:S.cur},e));add++;});
-    var extra='';
-    if(!had){S.carry=rd.carry;S.sun=rd.sun;extra='Vorige keer tekort / teveel: '+X.eur(rd.carry)+(rd.sun?' · 150% zondag: '+X.eur(rd.sun):'');}
-    localStorage.setItem('werkuren.v1',JSON.stringify(S));
-    var h='<h3>Klaar: '+add+' dag'+(add===1?'':'en')+' toegevoegd aan de huidige periode</h3>';
-    if(extra)h+='<div class="li">'+esc(extra)+'</div>';
-    rd.notes.concat(rd.skipped).forEach(function(t){h+='<div class="li w">'+esc(t)+'</div>';});
-    skip.forEach(function(t){h+='<div class="li m">'+esc(t)+'</div>';});
-    h+='<div class="li"><a style="color:inherit;font-weight:700" href="index.html">Naar de app (tab Uitbetaling) ›</a></div>';
-    $('toAppRep').innerHTML='<div class="rep">'+h+'</div>';
-  }catch(e){msg('Er ging iets mis: '+(e&&e.message?e.message:e));}
-};
 $('pickXl').onclick=function(){$('xl').click();};
 $('xl').onchange=function(){
   var f=this.files&&this.files[0];if(!f)return;xlName=f.name;var r=new FileReader();

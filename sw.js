@@ -1,5 +1,5 @@
-const CACHE = "werkuren-v5";
-const FILES = ["./", "index.html", "excel.html", "excel-sync.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
+const CACHE = "werkuren-v6";
+const FILES = ["./", "index.html", "excel.html", "excel-sync.js", "exceljs.min.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
 });

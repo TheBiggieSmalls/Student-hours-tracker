@@ -104,7 +104,7 @@
     var fresh = [];
     todo.forEach(function (e) {
       var k = dk(e.start);
-      if (seen[k]) rep.skipped.push(nlDate(k) + ' staat al in je Excel'); else fresh.push(e);
+      if (seen[k] && !opts.allowDup) rep.skipped.push(nlDate(k) + ' staat al in je Excel'); else fresh.push(e);
     });
 
     var L = ticketLines(ws, b), srcRow = lastFilled || b.h + 1;
@@ -114,7 +114,7 @@
     var lastRowAllowed = b.s - 1;
 
     fresh.forEach(function (e) {
-      var k = dk(e.start), loc = e.loc || '', single = e.trip === 'single', home = !!(locs[loc] && locs[loc].home), nm = loc.trim().toLowerCase();
+      var k = dk(e.start), loc = e.loc || '', single = e.trip === 'single', home = !!(locs[loc] && locs[loc].home) || e.trip === 'none', nm = loc.trim().toLowerCase();
       if (row > lastRowAllowed) { rep.skipped.push(nlDate(k) + ' past niet meer in dit blok (voeg zelf rijen toe)'); return; }
       // dagrij
       ['A', 'B', 'C', 'D', 'F', 'I', 'J'].forEach(function (c, i) { copyStyle(ws, srcRow, row, 'ABCDEFGHIJ'.indexOf(c) + 1); });
@@ -185,49 +185,94 @@
   }
 
 
-  // ---- Excel -> app: lees het laatste blok (dagen, vorige keer tekort/teveel, 150% zondag)
+  // ---- Excel-tab in de app: lees, bereken en bewerk het laatste blok
   function tmin(v) {
     if (v instanceof Date) return v.getUTCHours() * 60 + v.getUTCMinutes();
     if (typeof v === 'number') return Math.round((v % 1) * 1440) % 1440;
     return null;
   }
   function hhmm(m) { return p2(Math.floor(m / 60)) + ':' + p2(m % 60); }
-  function readLast(wb, knownLocs) {
-    var ws = wb.worksheets[0], rep = { entries: [], carry: 0, sun: 0, skipped: [], notes: [] }, bl = findBlocks(ws);
-    if (!bl.length || !bl[bl.length - 1].s) { rep.skipped.push('Ik vind geen blok met "Datum" en "Betaling" in je Excel.'); return rep; }
-    var b = bl[bl.length - 1], rows = [];
+  function ftext(cell) { var v = cell.value; return v && typeof v === 'object' ? (v.formula || '') : ''; }
+  function rateOf(cell, def) { var m = ftext(cell).match(/\*\s*(-?\d+(?:\.\d+)?)\)+\s*$/); return m ? parseFloat(m[1]) : def; }
+  function r2(x) { return Math.round(x * 100) / 100; }
+
+  function snapshot(wb) {
+    var ws = wb.worksheets[0], out = { ok: false, rows: [], lines: [] }, bl = findBlocks(ws);
+    if (!bl.length || !bl[bl.length - 1].s) { out.err = 'Ik vind geen blok met "Datum" en "Betaling" in dit Excel-bestand.'; return out; }
+    var b = bl[bl.length - 1], rows = [], lastFilled = 0;
     for (var r = b.h + 1; r <= b.s - 1; r++) {
       var bv = cv(ws.getCell(r, 2)); if (bv === null || bv === undefined || bv === '') continue;
-      rows.push({ r: r, c: dateCands(bv) });
+      lastFilled = r; rows.push({ r: r, c: dateCands(bv) });
     }
     var firsts = rows.filter(function (x) { return x.c.length; }).map(function (x) { var a = x.c[0].split('-'); return Date.UTC(+a[0], +a[1] - 1, +a[2]); }).sort(function (a, c) { return a - c; });
-    var ref = firsts.length ? firsts[Math.floor(firsts.length / 2)] : 0, names = knownLocs || [];
+    var ref = firsts.length ? firsts[Math.floor(firsts.length / 2)] : 0, gSum = 0, mSum = 0, mins = 0, singles = 0, last = '';
     rows.forEach(function (x) {
-      if (!x.c.length) { rep.skipped.push('Rij ' + x.r + ': datum niet leesbaar'); return; }
-      var best = x.c[0], bd = 1e18;
-      x.c.forEach(function (k) { var a = k.split('-'), dd = Math.abs(Date.UTC(+a[0], +a[1] - 1, +a[2]) - ref); if (dd < bd) { bd = dd; best = k; } });
-      if (best !== x.c[0]) rep.notes.push('Rij ' + x.r + ': datum gelezen als ' + nlDate(best) + ' (stond als ' + nlDate(x.c[0]) + ')');
-      var cs = tmin(cv(ws.getCell(x.r, 3))), ce = tmin(cv(ws.getCell(x.r, 4)));
-      if (cs === null || ce === null) { rep.skipped.push('Rij ' + x.r + ' (' + nlDate(best) + '): uren ontbreken'); return; }
-      var y = +best.slice(0, 4), m = +best.slice(5, 7), d = +best.slice(8, 10);
-      var st = new Date(y, m - 1, d, Math.floor(cs / 60), cs % 60).getTime(), en = new Date(y, m - 1, d, Math.floor(ce / 60), ce % 60).getTime(); if (en <= st) en += 864e5;
-      var is = tmin(cv(ws.getCell(x.r, 9))), je = tmin(cv(ws.getCell(x.r, 10))), e = { start: st, end: en };
-      if (is !== null && je !== null && (is !== cs || je !== ce)) { e.njS = hhmm(is); e.njE = hhmm(je); }
-      var a = (cv(ws.getCell(x.r, 1)) || '').toString().trim(), low = a.toLowerCase(), f = cv(ws.getCell(x.r, 6));
-      var single = /enkel/.test(low) || (f !== null && f !== undefined && String(f).trim() !== '');
-      var name = a.replace(/enkel/i, '').trim();
-      var hit = names.find(function (n) { return n.toLowerCase() === name.toLowerCase(); }) || names.find(function (n) { return name && low.indexOf(n.toLowerCase()) >= 0; });
-      e.loc = hit || name; e.trip = single ? 'single' : 'rt';
-      rep.entries.push(e);
+      var row = { r: x.r, k: null, fixed: false };
+      if (x.c.length) {
+        var best = x.c[0], bd = 1e18;
+        x.c.forEach(function (k) { var a = k.split('-'), dd = Math.abs(Date.UTC(+a[0], +a[1] - 1, +a[2]) - ref); if (dd < bd) { bd = dd; best = k; } });
+        row.k = best; row.fixed = best !== x.c[0]; if (!last || best > last) last = best;
+      }
+      var cs = tmin(cv(ws.getCell(x.r, 3))), ce = tmin(cv(ws.getCell(x.r, 4))), is = tmin(cv(ws.getCell(x.r, 9))), je = tmin(cv(ws.getCell(x.r, 10)));
+      row.cs = cs; row.ce = ce;
+      var E = (cs !== null && ce !== null) ? ce - cs + (ce < cs ? 1440 : 0) : 0, K = (is !== null && je !== null) ? je - is + (je < is ? 1440 : 0) : 0;
+      var lf = ftext(ws.getCell(x.r, 12)), L = /K\d+\s*-\s*E\d+/.test(lf) ? K - E : E - K;
+      var g = E / 60 * rateOf(ws.getCell(x.r, 7), 2), m = L / 60 * rateOf(ws.getCell(x.r, 13), 16);
+      row.mins = E; row.g = g; row.m = m;
+      if (cs !== null && ce !== null && is !== null && je !== null && (is !== cs || je !== ce)) { row.njS = hhmm(is); row.njE = hhmm(je); row.diff = E - K; }
+      var f = cv(ws.getCell(x.r, 6)); row.x = f !== null && f !== undefined && String(f).trim() !== ''; if (row.x) singles++;
+      var a = (cv(ws.getCell(x.r, 1)) || '').toString().trim(); row.single = /enkel/i.test(a) || row.x; row.loc = a.replace(/\s*enkel\s*/i, ' ').trim();
+      gSum += g; if (m > 0) mSum += m; mins += E;
+      out.rows.push(row);
     });
+    var L = ticketLines(ws, b), train = 0;
+    function line(key, kind) {
+      var rn = L[key]; if (!rn) return;
+      var label = ((cv(ws.getCell(rn, 1)) || '') + ' ' + (cv(ws.getCell(rn, 2)) || '')).toString().replace(/\s+/g, ' ').trim();
+      var price = cv(ws.getCell(rn, 3)), cnt = cv(ws.getCell(rn, 4)); price = typeof price === 'number' ? price : null; cnt = typeof cnt === 'number' ? cnt : 0;
+      var total = kind === 'kRt' ? (price || 0) * cnt + (price || 0) * singles / 2 : (price || 0) * cnt;
+      train += total; out.lines.push({ r: rn, kind: kind, label: label, price: price, count: cnt, total: r2(total), editable: true });
+    }
+    line('kRt', 'kRt');
+    if (L.kSingle) out.lines.push({ r: L.kSingle, kind: 'kSingle', label: '10 rit kaart Rit enkel', price: null, count: singles, total: 0, editable: false });
+    Object.keys(L).filter(function (k) { return k.indexOf('t:') === 0 || k === 'other'; }).sort(function (a, c) { return L[a] - L[c]; }).forEach(function (k) { line(k, 't'); });
+    var carry = 0, sun = 0, carryRow = null, sunRow = null;
     for (var q = b.s; q <= b.end; q++) {
       var lab = lc(ws.getCell(q, 6)), gv = cv(ws.getCell(q, 7));
-      if (/vorige keer/.test(lab) && typeof gv === 'number') rep.carry = gv;
-      if (/150%/.test(lab) && typeof gv === 'number') rep.sun = gv;
+      if (/vorige keer/.test(lab)) { carryRow = q; if (typeof gv === 'number') carry = gv; }
+      if (/150%/.test(lab)) { sunRow = q; if (typeof gv === 'number') sun = gv; }
     }
-    return rep;
+    out.ok = true; out.b = b; out.mins = mins; out.g = r2(gSum); out.m = r2(mSum); out.train = r2(train);
+    out.carry = carry; out.sun = sun; out.carryRow = carryRow; out.sunRow = sunRow; out.last = last; out.next = (lastFilled || b.h) + 1; out.max = b.s - 1;
+    out.rates = { g: rateOf(ws.getCell(b.h + 1, 7), 2), m: 16 };
+    out.total = r2(carry + gSum + mSum + train + sun);
+    return out;
   }
+  function pendingEntries(wb, entries) {
+    var ws = wb.worksheets[0], seen = {}, last = lastSheetDate(wb) || '0000-00-00';
+    findBlocks(ws).forEach(function (bl) { for (var r = bl.h + 1; r <= (bl.s || bl.end) - 1; r++) { var v = cv(ws.getCell(r, 2)); if (v === null || v === undefined || v === '') continue; dateCands(v).forEach(function (c) { seen[c] = 1; }); } });
+    var days = {};
+    return (entries || []).filter(function (e) { var k = dk(e.start); if (e.end == null || k <= last || seen[k] || days[k]) return false; days[k] = 1; return true; });
+  }
+  function ensureFormulas(ws, row, srcRow) {
+    var fm = { 5: 'SUM(D' + row + '-C' + row + ')', 7: 'SUM((E' + row + '*24)*2)', 11: 'SUM(J' + row + '-I' + row + ')', 12: 'SUM(E' + row + '-K' + row + ')', 13: 'SUM((24*L' + row + ')*16)' };
+    Object.keys(fm).forEach(function (col) { var c = ws.getCell(row, +col); if (!hasFormula(c)) { c.value = { formula: fm[col] }; copyStyle(ws, srcRow, row, +col); } });
+  }
+  function clearRow(wb, row) { var ws = wb.worksheets[0]; [1, 2, 3, 4, 6, 9, 10].forEach(function (c) { ws.getCell(row, c).value = null; }); }
+  function hmFrac(t) { var a = t.split(':'); return (+a[0] * 60 + +a[1]) / 1440; }
+  // sp: { k:'yyyy-mm-dd', s:'HH:MM', e:'HH:MM', ns, ne, loc, trip:'rt'|'single'|'none', home }
+  function editRow(wb, row, sp) {
+    var ws = wb.worksheets[0], single = sp.trip === 'single';
+    ws.getCell(row, 1).value = (sp.loc || '') + (single && !sp.home ? ' enkel' : '');
+    var bc = ws.getCell(row, 2); bc.value = new Date(Date.UTC(+sp.k.slice(0, 4), +sp.k.slice(5, 7) - 1, +sp.k.slice(8, 10))); bc.numFmt = DATE_FMT;
+    var hasNj = !!(sp.ns && sp.ne);
+    [[3, hmFrac(sp.s)], [4, hmFrac(sp.e)], [9, hasNj ? hmFrac(sp.ns) : hmFrac(sp.s)], [10, hasNj ? hmFrac(sp.ne) : hmFrac(sp.e)]].forEach(function (p) { var c = ws.getCell(row, p[0]); c.value = p[1]; c.numFmt = TIME_FMT; });
+    ws.getCell(row, 6).value = (single && String(sp.loc || '').trim().toLowerCase() === KAART) ? 'X' : null;
+    ensureFormulas(ws, row, row);
+  }
+  function setLine(wb, row, c, d) { var ws = wb.worksheets[0]; if (typeof c === 'number') ws.getCell(row, 3).value = c; if (typeof d === 'number' && !hasFormula(ws.getCell(row, 4))) ws.getCell(row, 4).value = d; }
+  function setInput(wb, row, v) { wb.worksheets[0].getCell(row, 7).value = v; }
 
-  var api = { run: run, readLast: readLast, lastSheetDate: lastSheetDate, dk: dk, eur: eur, nlDate: nlDate };
+  var api = { run: run, snapshot: snapshot, pendingEntries: pendingEntries, editRow: editRow, clearRow: clearRow, setLine: setLine, setInput: setInput, lastSheetDate: lastSheetDate, dk: dk, eur: eur, nlDate: nlDate };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.WerkurenExcel = api;
 })(typeof window !== 'undefined' ? window : this);
