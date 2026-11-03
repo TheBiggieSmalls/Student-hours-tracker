@@ -196,10 +196,13 @@
   function rateOf(cell, def) { var m = ftext(cell).match(/\*\s*(-?\d+(?:\.\d+)?)\)+\s*$/); return m ? parseFloat(m[1]) : def; }
   function r2(x) { return Math.round(x * 100) / 100; }
 
-  function snapshot(wb) {
+  function titleRowOf(ws, b) { var t = b.h > 1 ? cv(ws.getCell(b.h - 1, 1)) : null; return (typeof t === 'string' && t.trim()) ? b.h - 1 : b.h; }
+  function blockCount(wb) { return findBlocks(wb.worksheets[0]).length; }
+  function snapshot(wb, idx) {
     var ws = wb.worksheets[0], out = { ok: false, rows: [], lines: [] }, bl = findBlocks(ws);
-    if (!bl.length || !bl[bl.length - 1].s) { out.err = 'Ik vind geen blok met "Datum" en "Betaling" in dit Excel-bestand.'; return out; }
-    var b = bl[bl.length - 1], rows = [], lastFilled = 0;
+    var b = bl[idx === undefined || idx === null ? bl.length - 1 : idx];
+    if (!b || !b.s) { out.err = 'Ik vind geen blok met "Datum" en "Betaling" in dit Excel-bestand.'; return out; }
+    var rows = [], lastFilled = 0;
     for (var r = b.h + 1; r <= b.s - 1; r++) {
       var bv = cv(ws.getCell(r, 2)); if (bv === null || bv === undefined || bv === '') continue;
       lastFilled = r; rows.push({ r: r, c: dateCands(bv) });
@@ -242,7 +245,7 @@
       if (/vorige keer/.test(lab)) { carryRow = q; if (typeof gv === 'number') carry = gv; }
       if (/150%/.test(lab)) { sunRow = q; if (typeof gv === 'number') sun = gv; }
     }
-    out.ok = true; out.b = b; out.mins = mins; out.g = r2(gSum); out.m = r2(mSum); out.train = r2(train);
+    out.ok = true; out.titleRow = titleRowOf(ws, b); out.from = rows.length ? (out.rows.map(function (r) { return r.k; }).filter(Boolean).sort()[0] || '') : ''; out.b = b; out.mins = mins; out.g = r2(gSum); out.m = r2(mSum); out.train = r2(train);
     out.carry = carry; out.sun = sun; out.carryRow = carryRow; out.sunRow = sunRow; out.last = last; out.next = (lastFilled || b.h) + 1; out.max = b.s - 1;
     out.rates = { g: rateOf(ws.getCell(b.h + 1, 7), 2), m: 16 };
     out.total = r2(carry + gSum + mSum + train + sun);
@@ -273,6 +276,52 @@
   function setLine(wb, row, c, d) { var ws = wb.worksheets[0]; if (typeof c === 'number') ws.getCell(row, 3).value = c; if (typeof d === 'number' && !hasFormula(ws.getCell(row, 4))) ws.getCell(row, 4).value = d; }
   function setInput(wb, row, v) { wb.worksheets[0].getCell(row, 7).value = v; }
 
-  var api = { run: run, snapshot: snapshot, pendingEntries: pendingEntries, editRow: editRow, clearRow: clearRow, setLine: setLine, setInput: setInput, lastSheetDate: lastSheetDate, dk: dk, eur: eur, nlDate: nlDate };
+
+  // ---- betaling voltooid: nieuw blok onderaan, zelfde opmaak en formules, alles leeg
+  function shiftFormula(f, off, minRow) {
+    return f.replace(/(\$?[A-Z]{1,3}\$?)(\d+)/g, function (m, c, r) { return +r >= minRow ? c + (+r + off) : m; });
+  }
+  function rowHasContent(ws, r) { for (var c = 1; c <= 15; c++) { var v = cv(ws.getCell(r, c)); if (v !== null && v !== undefined && v !== '') return true; } return false; }
+  function closeBlock(wb, opts) {
+    var ws = wb.worksheets[0], bl = findBlocks(ws), snap = snapshot(wb);
+    if (!snap.ok) throw new Error(snap.err);
+    var b = bl[bl.length - 1], titleRow = snap.titleRow, endRow = Math.min(b.end, ws.rowCount);
+    while (endRow > b.h && !rowHasContent(ws, endRow)) endRow--;
+    var gap = 3;
+    if (bl.length > 1) { var pe = titleRow - 1; while (pe > bl[bl.length - 2].h && !rowHasContent(ws, pe)) pe--; gap = Math.max(2, Math.min(6, titleRow - pe - 1)); }
+    var newTitle = endRow + gap + 1, off = newTitle - titleRow, first = b.h + 1, lastD = b.s - 1;
+    var carry = r2(snap.total - (typeof opts.received === 'number' ? opts.received : snap.total));
+    var L = ticketLines(ws, b), countRows = {};
+    Object.keys(L).forEach(function (k) { countRows[L[k]] = k; });
+    for (var r = titleRow; r <= endRow; r++) {
+      var nr = r + off, isData = r >= first && r <= lastD;
+      ws.getRow(nr).height = ws.getRow(r).height;
+      for (var c = 1; c <= 15; c++) {
+        var src = ws.getCell(r, c), dst = ws.getCell(nr, c);
+        if (src.style && Object.keys(src.style).length) dst.style = JSON.parse(JSON.stringify(src.style));
+        var v = src.value;
+        if (isData) { dst.value = null; continue; }
+        if (v && typeof v === 'object' && !(v instanceof Date)) {
+          if (v.formula) dst.value = { formula: shiftFormula(v.formula, off, titleRow) };
+          else dst.value = null;
+        } else dst.value = (v === undefined ? null : v);
+      }
+      if (isData) {
+        var fm = { 5: 'SUM(D' + nr + '-C' + nr + ')', 7: 'SUM((E' + nr + '*24)*2)', 11: 'SUM(J' + nr + '-I' + nr + ')', 12: 'SUM(E' + nr + '-K' + nr + ')', 13: 'SUM((24*L' + nr + ')*16)' };
+        Object.keys(fm).forEach(function (col) { ws.getCell(nr, +col).value = { formula: fm[col] }; });
+      }
+    }
+    var f1 = first + off, f2 = lastD + off;
+    ws.getCell(b.s + off, 7).value = { formula: 'SUM(G' + f1 + ':G' + f2 + ')' };
+    ws.getCell(b.s + off, 13).value = { formula: 'SUMIF(M' + f1 + ':M' + f2 + ',">0")' };
+    if (L.kSingle) ws.getCell(L.kSingle + off, 4).value = { formula: 'COUNTA(F' + f1 + ':F' + f2 + ')' };
+    Object.keys(countRows).forEach(function (rn) { rn = +rn; if (rn === L.kSingle) return; var dc = ws.getCell(rn + off, 4); if (!hasFormula(dc)) dc.value = 0; });
+    if (snap.carryRow) ws.getCell(snap.carryRow + off, 7).value = carry;
+    if (snap.sunRow) ws.getCell(snap.sunRow + off, 7).value = 0;
+    wb.calcProperties = wb.calcProperties || {}; wb.calcProperties.fullCalcOnLoad = true;
+    return { titleRow: newTitle, carry: carry, total: snap.total };
+  }
+
+  var api = { run: run, snapshot: snapshot, blockCount: blockCount, closeBlock: closeBlock, pendingEntries: pendingEntries, editRow: editRow, clearRow: clearRow, setLine: setLine, setInput: setInput, lastSheetDate: lastSheetDate, dk: dk, eur: eur, nlDate: nlDate };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.WerkurenExcel = api;
 })(typeof window !== 'undefined' ? window : this);

@@ -89,6 +89,10 @@ input,select,textarea{width:100%;padding:14px;border-radius:14px;border:1.5px so
 .xw{border:1.5px solid var(--stop);color:var(--stop);border-radius:14px;padding:10px 12px;margin:8px 0;font-size:13px;line-height:1.4}
 .hint2{font-size:12px;color:var(--mute);margin:6px 2px 0;line-height:1.4}
 .xbtns{display:grid;gap:8px}.xbtns .addday{margin:0}.addday.on{border-style:solid;border-color:var(--ink);color:var(--ink)}
+.dd{width:56px;height:64px}
+.dd b{font-size:21px}
+.dd small{font-size:10px;letter-spacing:.04em}
+.dd small.mo{color:var(--ink);font-weight:700}
 .seg{display:flex;border:1.5px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card)}
 .seg button{border:0;background:transparent;padding:0 18px;min-height:44px;font-weight:600;font-size:14px;color:var(--mute)}
 .seg button.on{background:var(--ink);color:var(--bg)}
@@ -129,6 +133,14 @@ input,select,textarea{width:100%;padding:14px;border-radius:14px;border:1.5px so
   <p class="mmsg" id="pMsg"></p>
   <div class="acts"><button id="pCancel">Annuleer</button><button class="save" id="pSave">Opslaan</button></div>
 </div></div>
+<div class="scrim" id="scrimR"><div class="sheet">
+  <h2>Betaling ontvangen</h2>
+  <p class="mmsg" id="rInfo"></p>
+  <label for="rRec">Effectief ontvangen (€)</label><input id="rRec" type="text" inputmode="decimal">
+  <p class="mmsg" id="rDiff"></p>
+  <p class="mmsg">Je Excel krijgt een nieuw blok onderaan, met "Vorige keer tekort / teveel" al ingevuld. Je Overzicht begint opnieuw. Deze betaling vind je terug onder Voorbije betalingen in het menu.</p>
+  <div class="acts"><button id="rCancel">Annuleer</button><button class="save" id="rOk">Betaling voltooid</button></div>
+</div></div>
 <input type="file" id="xlFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
 <div class="scrim" id="scrimX"><div class="sheet">
   <h2 id="xT">Dag</h2>
@@ -158,8 +170,10 @@ input,select,textarea{width:100%;padding:14px;border-radius:14px;border:1.5px so
     <h2>Menu</h2>
     <button class="mrow" id="mLocBtn"><b>Locaties</b><small>Beheer je plaatsen en welke gratis zijn</small></button>
     <button class="mrow" id="mPrBtn"><b>Ticketprijzen</b><small>Prijs per plaats, met prijsgeschiedenis</small></button>
+    <button class="mrow" id="mPastBtn"><b>Voorbije betalingen</b><small>Wat al betaald is, uit je Excel</small></button>
     <button class="mrow" id="mXls"><b>Naar Excel</b><small>Vul je uren automatisch in je Excel in</small></button>
     <button class="mrow" id="mBackup"><b>Backup en export</b><small>Bewaar je uren of maak een CSV</small></button>
+    <p class="mmsg" id="mOff"></p>
     <p class="minfo"><b>Installeer als app.</b> In Chrome: open het ⋮ menu en kies App installeren. In Safari: tik op Delen en daarna Zet op beginscherm.<br><b>Werkt offline.</b> Zodra de app één keer geladen is, werkt ze zonder internet, geïnstalleerd of niet.</p>
   </div>
   <div id="mLoc" hidden>
@@ -173,6 +187,11 @@ input,select,textarea{width:100%;padding:14px;border-radius:14px;border:1.5px so
     <p class="mmsg">Prijs per ticket. Wordt een ticket duurder, voeg dan een nieuwe prijs toe met een startdatum. Oudere dagen blijven met de oude prijs berekend.</p>
     <div id="prList"></div>
     <button class="mrow" id="prAdd"><b>+ Nieuwe prijs</b><small>Bijvoorbeeld na een prijsstijging</small></button>
+  </div>
+  <div id="mPast" hidden>
+    <div class="mhead"><button data-back aria-label="Terug">‹</button><h2>Voorbije betalingen</h2></div>
+    <div id="pastList"></div>
+    <button class="mrow" id="pastImp"><b>Excel importeren</b><small>Kies je Excel om eerdere betalingen te zien</small></button>
   </div>
   <div id="mBk" hidden>
     <div class="mhead"><button data-back aria-label="Terug">‹</button><h2>Backup en export</h2></div>
@@ -195,7 +214,7 @@ input,select,textarea{width:100%;padding:14px;border-radius:14px;border:1.5px so
 var KEY='werkuren.v1',$=function(i){return document.getElementById(i);};
 function defs(){return{entries:[],locs:[{n:'Nossegem'},{n:'Diegem'},{n:'Leuven'},{n:'Tienen',home:1},{n:'Kortenberg'}],last:'Leuven',prices:defPrices(),trip:'rt'};}
 function load(){try{var r=JSON.parse(localStorage.getItem(KEY));if(r&&Array.isArray(r.entries)&&Array.isArray(r.locs))return r;}catch(e){}return null;}
-var S=load()||defs(),view='today';if(!S.prices)S.prices=defPrices();if(!S.trip)S.trip='rt';
+var S=load()||defs(),view='today';if(!S.prices)S.prices=defPrices();if(!S.trip)S.trip='rt';if(typeof S.paidTo!=='number')S.paidTo=0;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -218,6 +237,7 @@ function priceAt(loc,k){var list=S.prices[loc]||[],best=null;list.forEach(functi
 function money(n){return '€ '+(Math.round(n*100)/100).toFixed(2).replace('.',',');}
 function mins(t){var a=t.split(':');return +a[0]*60+ +a[1];}
 function njLine(e){if(!e.njS||!e.njE||e.end==null)return '';var nj=mins(e.njE)-mins(e.njS);if(nj<0)nj+=1440;var d=Math.round((e.end-e.start)/60000)-nj;return '<div class="nj">NowJobs '+e.njS+'–'+e.njE+' · '+(d>0?d+' min extra te betalen':d<0?'NowJobs telt '+(-d)+' min meer':'zelfde uren')+'</div>';}
+function ddHtml(d){return '<div class="dd"><small>'+(d?nl(d,{weekday:'short'}).replace('.',''):'')+'</small><b>'+(d?d.getDate():'?')+'</b><small class="mo">'+(d?nl(d,{month:'short'}).replace('.',''):'')+'</small></div>';}
 function tripTxt(e){return (!e.loc||isHome(e.loc))?'':' · '+(e.trip==='single'?'enkel':'heen & terug');}
 function nl(d,o){return d.toLocaleDateString('nl-BE',o);}
 
@@ -242,10 +262,10 @@ function rToday(){
 }
 function entHtml(e){
   var d=new Date(e.start),run=e.end==null;
-  return '<button class="ent" data-edit="'+e.id+'"><div class="dd"><b>'+d.getDate()+'</b><small>'+nl(d,{weekday:'short'})+'</small></div><div class="mid"><div class="tm">'+hm(e.start)+' – '+(run?'…':hm(e.end))+'</div><div class="lo">'+esc((e.loc||'–')+tripTxt(e))+'</div>'+njLine(e)+'</div><div class="du'+(run?' run':'')+'">'+(run?'bezig':dur(e.end-e.start))+'</div></button>';
+  return '<button class="ent" data-edit="'+e.id+'">'+ddHtml(d)+'<div class="mid"><div class="tm">'+hm(e.start)+' – '+(run?'…':hm(e.end))+'</div><div class="lo">'+esc((e.loc||'–')+tripTxt(e))+'</div>'+njLine(e)+'</div><div class="du'+(run?' run':'')+'">'+(run?'bezig':dur(e.end-e.start))+'</div></button>';
 }
 function rList(){
-  var es=S.entries.slice().sort(function(a,b){return b.start-a.start;}),now=Date.now(),h='<div class="list"><button class="addday" data-a="add">+ Dag toevoegen</button>';
+  var es=S.entries.filter(function(e){return e.start>(S.paidTo||0);}).sort(function(a,b){return b.start-a.start;}),now=Date.now(),h='<div class="list"><button class="addday" data-a="add">+ Dag toevoegen</button>'+(S.paidTo?'<div class="hint2">Overzicht sinds je laatste betaling ('+nl(new Date(S.paidTo),{day:'numeric',month:'short'})+'). Oudere dagen vind je onder Voorbije betalingen in het menu.</div>':'');
   if(!es.length)return h+'<div class="empty">Nog geen werkdagen.<br>Ze verschijnen hier zodra je op START drukt.</div></div>';
   var groups=[],map={};
   es.forEach(function(e){var d=new Date(e.start),k=d.getFullYear()+'-'+p2(d.getMonth()+1);if(!map[k]){map[k]={d:d,items:[]};groups.push(map[k]);}map[k].items.push(e);});
@@ -288,6 +308,7 @@ $('view').addEventListener('click',function(ev){
   else if(b.dataset.a==='xadj')openXAdj();
   else if(b.dataset.a==='xline')openXLine(+b.dataset.r);
   else if(b.dataset.a==='xdl')xlDownload();
+  else if(b.dataset.a==='xpaid')openPaid();
   else if(b.dataset.xr)openXDay(+b.dataset.xr);
 });
 document.querySelector('.tabs').addEventListener('click',function(ev){var b=ev.target.closest('button');if(b){view=b.dataset.v;render();window.scrollTo(0,0);}});
@@ -334,21 +355,25 @@ function xlLibs(){return loadScript('exceljs.min.js',function(){return window.Ex
 function idbOpen(){return new Promise(function(res,rej){try{var r=indexedDB.open('werkuren-xl',1);r.onupgradeneeded=function(){r.result.createObjectStore('f');};r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};}catch(e){rej(e);}});}
 function idbPut(v){return idbOpen().then(function(db){return new Promise(function(res,rej){var t=db.transaction('f','readwrite');t.objectStore('f').put(v,'cur');t.oncomplete=res;t.onerror=function(){rej(t.error);};});});}
 function idbGet(){return idbOpen().then(function(db){return new Promise(function(res,rej){var q=db.transaction('f').objectStore('f').get('cur');q.onsuccess=function(){res(q.result);};q.onerror=function(){rej(q.error);};});});}
-function xlPersist(){return xl.wb.xlsx.writeBuffer().then(function(buf){return idbPut({name:xl.name,buf:buf,at:Date.now()});}).catch(function(){});}
+function xlPersist(){return xl.wb.xlsx.writeBuffer().then(function(buf){return idbPut({name:xl.name,buf:buf,at:Date.now()});}).then(function(){xl.saved=true;if(view==='xl'&&!xl.status)render();}).catch(function(){});}
 function xlRefresh(){xl.sn=window.WerkurenExcel.snapshot(xl.wb);}
 function xlLoad(buf,name,persist){var wb=new ExcelJS.Workbook();return wb.xlsx.load(buf).then(function(){xl.wb=wb;xl.name=name;xlRefresh();return persist?xlPersist():null;});}
+function xlEnsure(){
+  if(xl.wb)return Promise.resolve();
+  return xlLibs().then(idbGet).then(function(rec){if(rec&&rec.buf){xl.saved=true;return xlLoad(rec.buf,rec.name,false);}}).catch(function(){});
+}
 function xlEnter(){
   if(xl.tried)return;xl.tried=true;xl.status='Laden…';
   setTimeout(function(){render();},0);
-  xlLibs().then(idbGet).then(function(rec){if(rec&&rec.buf)return xlLoad(rec.buf,rec.name,false);}).catch(function(){}).then(function(){xl.status='';render();});
+  xlEnsure().then(function(){xl.status='';render();});
 }
 function xlDo(fn){xl.notes=[];try{fn();}catch(e){xl.notes=['Er ging iets mis: '+(e&&e.message?e.message:e)];render();return;}xlRefresh();render();xlPersist();}
 function xlWarn(){return xl.notes.map(function(t){return '<div class="xw">'+esc(t)+'</div>';}).join('');}
-function xRowHtml(r){
+function xRowHtml(r,ro){
   var d=r.k?new Date(+r.k.slice(0,4),+r.k.slice(5,7)-1,+r.k.slice(8,10)):null;
   var t=(r.cs!=null&&r.ce!=null)?hhmm(r.cs)+' – '+hhmm(r.ce):'uren ontbreken';
   var nj=r.njS?'<div class="nj">NowJobs '+r.njS+'–'+r.njE+' · '+(r.diff>0?r.diff+' min extra te betalen':r.diff<0?'NowJobs telt '+(-r.diff)+' min meer':'zelfde uren')+'</div>':'';
-  return '<button class="ent" data-xr="'+r.r+'"><div class="dd"><b>'+(d?d.getDate():'?')+'</b><small>'+(d?nl(d,{weekday:'short'}):'')+'</small></div><div class="mid"><div class="tm">'+t+'</div><div class="lo">'+esc((r.loc||'–')+(r.single?' · enkel':''))+'</div>'+nj+'</div><div class="du">'+dur(r.mins*60000)+'</div></button>';
+  return (ro?'<div class="ent">':'<button class="ent" data-xr="'+r.r+'">')+ddHtml(d)+'<div class="mid"><div class="tm">'+t+'</div><div class="lo">'+esc((r.loc||'–')+(r.single?' · enkel':''))+'</div>'+nj+'</div><div class="du">'+dur(r.mins*60000)+'</div>'+(ro?'</div>':'</button>');
 }
 function rXl(){
   var h='<div class="pay">';
@@ -356,11 +381,11 @@ function rXl(){
   if(!xl.wb)return h+'<div class="empty">Laad je uren-Excel in. De app onthoudt het bestand op dit toestel.</div>'+xlWarn()+'<button class="paybtn" data-a="xpick">Excel kiezen</button></div>';
   var sn=xl.sn;
   if(!sn.ok)return h+'<div class="xw">'+esc(sn.err)+'</div><button class="paybtn" data-a="xpick">Ander bestand kiezen</button></div>';
-  h+='<div class="date">'+esc(xl.name)+' · laatste blok</div><div class="paytot">'+money(sn.total)+'</div><div class="ask" style="margin:0 0 10px">Te ontvangen (totaal)</div>';
+  h+='<div class="date">'+esc(xl.name)+' · laatste blok'+(xl.saved?' · bewaard op dit toestel ✓':'')+'</div><div class="paytot">'+money(sn.total)+'</div><div class="ask" style="margin:0 0 10px">Te ontvangen (totaal)</div>';
   h+=prow('Gewerkte uren',dur(sn.mins*60000))+prow('Extra '+money(sn.rates.g)+' per uur',money(sn.g))+prow('NowJobs-verschil',money(sn.m))+prow('Treinkosten',money(sn.train));
   if(sn.carryRow)h+='<button class="pr tap" data-a="xadj"><span>Vorige keer tekort / teveel</span><b>'+money(sn.carry)+'</b></button>';
   if(sn.sunRow)h+='<button class="pr tap" data-a="xadj"><span>150% zondag</span><b>'+money(sn.sun)+'</b></button>';
-  h+=prow('Totaal',money(sn.total),' sum')+xlWarn();
+  h+=prow('Totaal',money(sn.total),' sum')+xlWarn()+'<button class="paybtn" data-a="xpaid">Betaling ontvangen, nieuwe periode starten</button>';
   var pend=window.WerkurenExcel.pendingEntries(xl.wb,S.entries);
   h+='<div class="sech">Dagen</div><div class="xbtns"><button class="addday" data-a="xadd">+ Dag toevoegen</button>'+(pend.length?'<button class="addday on" data-a="xapp">Uit de app toevoegen ('+pend.length+')</button>':'')+'</div>';
   h+=sn.rows.length?sn.rows.map(xRowHtml).join(''):'<div class="empty" style="margin-top:8px">Nog geen dagen in dit blok.</div>';
@@ -374,7 +399,7 @@ $('xlFile').onchange=function(){
   var f=this.files&&this.files[0];if(!f)return;var rd=new FileReader();xl.tried=true;
   rd.onload=function(){
     xl.status='Laden…';render();
-    xlLibs().then(function(){return xlLoad(rd.result,f.name,true);}).then(function(){xl.notes=[];xl.status='';render();toast('Excel geladen ✓');})
+    xlLibs().then(function(){return xlLoad(rd.result,f.name,true);}).then(function(){xl.notes=[];xl.status='';xl.openPast=null;render();if(!$('mPast').hidden)rPastDraw();toast('Excel geladen ✓');})
       .catch(function(e){xl.status='';xl.notes=['Dit bestand kan ik niet lezen: '+(e&&e.message?e.message:e)];render();});
   };
   rd.readAsArrayBuffer(f);this.value='';
@@ -387,6 +412,7 @@ function xlAddApp(){
   var X=window.WerkurenExcel,last=X.lastSheetDate(xl.wb),rep,from=last?dk(new Date(+last.slice(0,4),+last.slice(5,7)-1,+last.slice(8,10)+1).getTime()):undefined;
   xlDo(function(){rep=X.run(xl.wb,{entries:S.entries,locs:S.locs,prices:S.prices},{from:from});xl.notes=rep.warnings.concat(rep.skipped);});
   if(rep&&rep.added.length)toast(rep.added.length+' dag'+(rep.added.length===1?'':'en')+' toegevoegd ✓');
+  return rep?rep.added.length:0;
 }
 function openXDay(row){
   var r=row?xl.sn.rows.find(function(x){return x.r===row;}):null;xRow=r?r.r:null;
@@ -417,6 +443,63 @@ $('xDel').onclick=function(){
   if(!xArm){xArm=true;$('xDel').textContent='Zeker?';setTimeout(function(){xArm=false;$('xDel').textContent='Wis dag';},3000);return;}
   $('scrimX').classList.remove('open');xlDo(function(){window.WerkurenExcel.clearRow(xl.wb,xRow);});toast('Dag gewist');
 };
+function r2(x){return Math.round(x*100)/100;}
+function openPaid(){
+  if(!xl.sn||!xl.sn.ok)return;
+  if(act()){toast('Sluit eerst je lopende werkdag af met STOP.');return;}
+  var X=window.WerkurenExcel,added=0;
+  if(X.pendingEntries(xl.wb,S.entries).length)added=xlAddApp();
+  var total=xl.sn.total;
+  $('rInfo').textContent='Totaal te ontvangen: '+money(total)+(added?' · '+added+' dag'+(added===1?'':'en')+' uit de app zijn eerst aan je Excel toegevoegd.':'')+(xl.notes.length?' Let op: '+xl.notes.join(' '):'');
+  $('rRec').value=String(total).replace('.',',');rDiff();$('scrimR').classList.add('open');
+}
+function rDiff(){
+  var t=xl.sn?xl.sn.total:0,rec=num2($('rRec').value);
+  if(isNaN(rec)){$('rDiff').textContent='';return;}
+  var d=r2(t-rec);
+  $('rDiff').textContent=d===0?'Geen verschil. De nieuwe periode begint bij € 0,00.':(d>0?'Tekort van '+money(d)+': dit wordt bijgeteld in de nieuwe periode.':'Teveel van '+money(-d)+': dit wordt afgetrokken in de nieuwe periode.');
+}
+$('rRec').addEventListener('input',rDiff);
+$('rCancel').onclick=function(){$('scrimR').classList.remove('open');};
+$('scrimR').addEventListener('click',function(e){if(e.target===$('scrimR'))$('scrimR').classList.remove('open');});
+$('rOk').onclick=function(){
+  var rec=num2($('rRec').value);if(isNaN(rec)){$('rDiff').textContent='Vul het ontvangen bedrag in.';return;}
+  $('scrimR').classList.remove('open');
+  var a=act(),res;
+  xlDo(function(){res=window.WerkurenExcel.closeBlock(xl.wb,{received:rec});});
+  if(res){S.paidTo=a?a.start-1:Date.now();save();xl.openPast=null;render();window.scrollTo(0,0);toast('Betaling voltooid ✓ Nieuw blok gestart');}
+};
+function nlShort(k){var a=k.split('-');return nl(new Date(+a[0],+a[1]-1,+a[2]),{day:'numeric',month:'short'});}
+function rPast(){
+  var el=$('pastList');
+  if(!xl.wb){el.innerHTML='<p class="mmsg">Laden…</p>';xlEnsure().then(rPastDraw);return;}
+  rPastDraw();
+}
+function rPastDraw(){
+  var el=$('pastList'),X=window.WerkurenExcel;
+  if(!xl.wb||!X){el.innerHTML='<p class="mmsg">Nog geen Excel geladen. Kies hieronder je Excel-bestand om eerdere betalingen te zien.</p>';return;}
+  var n=X.blockCount(xl.wb),h='';
+  if(n<2){el.innerHTML='<p class="mmsg">Er zijn nog geen voorbije betalingen in dit bestand.</p>';return;}
+  for(var i=n-2;i>=0;i--){
+    var sn=X.snapshot(xl.wb,i);if(!sn.ok)continue;
+    var rng=sn.from?nlShort(sn.from)+' – '+nlShort(sn.last)+' '+sn.last.slice(0,4):'Blok '+(i+1);
+    h+='<button class="hist" data-pi="'+i+'"><span>'+esc(rng)+'</span><b>'+money(sn.total)+'</b></button>';
+    if(xl.openPast===i){
+      var per={};sn.rows.forEach(function(r){var k=r.loc||'–',q=per[k]||(per[k]={n:0,s:0});q.n++;if(r.single)q.s++;});
+      h+='<div class="hd"><div class="tcs" style="margin:8px 0">'+Object.keys(per).sort().map(function(k){var q=per[k];return '<span class="tc'+(isHome(k)?' home':'')+'">'+esc(k)+' ×'+q.n+(isHome(k)?' · thuis':(q.s?' · '+q.s+' enkel':''))+'</span>';}).join('')+'</div>'+
+        prow('Gewerkte uren',dur(sn.mins*60000)+' · '+sn.rows.length+' dagen')+prow('Extra '+money(sn.rates.g)+' per uur',money(sn.g))+prow('NowJobs-verschil',money(sn.m))+prow('Treinkosten',money(sn.train))+prow('Vorige keer tekort / teveel',money(sn.carry))+prow('150% zondag',money(sn.sun))+prow('Totaal',money(sn.total),' sum')+
+        '<div class="sech" style="margin:12px 0 6px">Dagen</div>'+sn.rows.map(function(r){return xRowHtml(r,true);}).join('')+
+        '<div class="sech" style="margin:12px 0 6px">Treinritten</div>'+sn.lines.map(function(l){return prow(esc(l.label)+(l.price!=null?' · '+money(l.price):'')+' × '+l.count,l.kind==='kSingle'?'':money(l.total));}).join('')+'</div>';
+    }
+  }
+  el.innerHTML=h||'<p class="mmsg">Geen voorbije betalingen gevonden.</p>';
+}
+$('pastList').addEventListener('click',function(e){var b=e.target.closest('[data-pi]');if(!b)return;var i=+b.dataset.pi;xl.openPast=xl.openPast===i?null:i;rPastDraw();});
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}
+function offlineCheck(){
+  var el=$('mOff');if(!el||!('caches' in window))return;
+  caches.match('exceljs.min.js').then(function(r){el.textContent=r?'Offline klaar ✓ Alle onderdelen en je gegevens staan op dit toestel.':'Nog niet offline klaar. Open de app één keer met internet.';}).catch(function(){});
+}
 function openXLine(row){
   var l=xl.sn.lines.find(function(x){return x.r===row;});if(!l||!l.editable)return;
   xl.lineRow=row;$('kT').textContent=l.label;$('kP').value=l.price!=null?String(l.price).replace('.',','):'';$('kC').value=l.count;$('scrimK').classList.add('open');
@@ -437,8 +520,8 @@ $('gOk').onclick=function(){
 
 /* menu */
 function msg(t){$('mMsg').textContent=t;}
-function pane(n){['mMain','mLoc','mPr','mBk'].forEach(function(i){$(i).hidden=i!==n;});msg('');$('mText').hidden=true;$('mDoPaste').hidden=true;if(n==='mLoc')rLocs();if(n==='mPr')rPrices();}
-function openMenu(n){pane(n||'mMain');$('scrimM').classList.add('open');}
+function pane(n){['mMain','mLoc','mPr','mPast','mBk'].forEach(function(i){$(i).hidden=i!==n;});msg('');$('mText').hidden=true;$('mDoPaste').hidden=true;if(n==='mLoc')rLocs();if(n==='mPr')rPrices();if(n==='mPast')rPast();}
+function openMenu(n){pane(n||'mMain');offlineCheck();$('scrimM').classList.add('open');}
 $('burger').onclick=function(){openMenu('mMain');};
 $('scrimM').addEventListener('click',function(e){if(e.target===$('scrimM'))$('scrimM').classList.remove('open');});
 document.querySelectorAll('[data-back]').forEach(function(b){b.onclick=function(){pane('mMain');};});
@@ -446,6 +529,8 @@ $('mLocBtn').onclick=function(){pane('mLoc');};
 $('mBackup').onclick=function(){pane('mBk');};
 $('mPrBtn').onclick=function(){pane('mPr');};
 $('mXls').onclick=function(){location.href='excel.html';};
+$('mPastBtn').onclick=function(){pane('mPast');};
+$('pastImp').onclick=function(){$('xlFile').click();};
 function rPrices(){
   var h='';
   S.locs.filter(function(l){return !l.home;}).forEach(function(l){
@@ -503,7 +588,7 @@ async function saveFile(fn,text,mime){
 }
 function report(r,alt){msg(r==='cancel'?'Geannuleerd.':r==='fail'?'Downloaden lukt hier niet. '+alt:'Download gestart. Niets te zien? '+alt);}
 function stamp(){return new Date().toISOString().slice(0,10);}
-function json(){return JSON.stringify({app:'werkuren',v:2,entries:S.entries,locs:S.locs,last:S.last,prices:S.prices},null,2);}
+function json(){return JSON.stringify({app:'werkuren',v:3,entries:S.entries,locs:S.locs,last:S.last,prices:S.prices,paidTo:S.paidTo||0},null,2);}
 function csv(){
   var rows=['Datum;Start;Einde;Duur;Locatie;Treinrit'];
   S.entries.slice().sort(function(a,b){return a.start-b.start;}).forEach(function(e){
@@ -533,7 +618,7 @@ function importText(txt){
   if(!es.length){msg('Geen werkdagen gevonden, er is niets veranderd.');return;}
   var seen=false;es.forEach(function(e){if(e.end==null){if(seen)e.end=e.start;seen=true;}});
   var ls=Array.isArray(d.locs)?d.locs.filter(function(l){return l&&typeof l.n==='string'&&l.n;}).map(function(l){return l.home?{n:l.n.slice(0,30),home:1}:{n:l.n.slice(0,30)};}):defs().locs;
-  S={entries:es,locs:ls,last:typeof d.last==='string'?d.last:(ls[0]?ls[0].n:''),prices:cleanPrices(d.prices),trip:'rt'};
+  S={entries:es,locs:ls,last:typeof d.last==='string'?d.last:(ls[0]?ls[0].n:''),prices:cleanPrices(d.prices),trip:'rt',paidTo:typeof d.paidTo==='number'?d.paidTo:0};
   save();render();msg('Geïmporteerd: '+es.length+' werkdag'+(es.length===1?'':'en')+'.');
 }
 $('mImport').onclick=function(){$('mFile').click();};
